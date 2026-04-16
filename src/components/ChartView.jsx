@@ -100,6 +100,81 @@ const ASPECT_MEANINGS = {
   quincunx:'Adjustment needed — two areas require constant fine-tuning.',
 };
 
+// ─── Detailed placement interpretation data ───────────────────────────────
+
+const PLANET_FULL = {
+  Sun:     { domain: 'your core identity, life force, and sense of purpose', verb: 'you shine and express yourself' },
+  Moon:    { domain: 'your emotional landscape, instincts, and inner comfort needs', verb: 'you feel, react, and seek safety' },
+  Mercury: { domain: 'your mind, communication style, and the way you process information', verb: 'you think, speak, and learn' },
+  Venus:   { domain: 'your capacity for love, beauty, pleasure, and what you value most', verb: 'you love, attract, and create beauty' },
+  Mars:    { domain: 'your will, physical energy, courage, and desire', verb: 'you act, assert, and pursue' },
+  Jupiter: { domain: 'your sense of expansion, faith, abundance, and where you seek meaning', verb: 'you grow, explore, and find faith' },
+  Saturn:  { domain: 'your relationship with structure, responsibility, time, and mastery', verb: 'you commit, endure, and build' },
+  Uranus:  { domain: 'your need for freedom, originality, and radical change', verb: 'you rebel, innovate, and awaken' },
+  Neptune: { domain: 'your spiritual longings, imagination, and relationship with the unseen', verb: 'you dream, dissolve, and transcend' },
+  Pluto:   { domain: 'your deepest transformations, hidden power, and cycles of death and rebirth', verb: 'you transform, surrender, and regenerate' },
+  'North Node': { domain: "your soul's evolutionary direction and the qualities you are growing toward in this lifetime", verb: 'you are called to evolve' },
+  'South Node': { domain: 'your past-life patterns, innate gifts, and the comfort zones your soul is moving away from', verb: 'you carry forward' },
+  Chiron:  { domain: 'your deepest wound and your greatest gift as a healer once you have walked through it', verb: 'you wound and heal' },
+  Lilith:  { domain: 'your raw, untamed power — the part of you that refuses to be suppressed or domesticated', verb: 'you reclaim power' },
+  ASC:     { domain: 'your outer persona, physical presence, and the first impression you make on the world', verb: 'you present yourself' },
+  MC:      { domain: 'your public vocation, reputation, and the legacy you are building over a lifetime', verb: 'you achieve and are seen' },
+};
+
+const SIGN_FULL = {
+  Aries:       { gift: 'courage, raw initiative, and the ability to start what others won\'t dare', shadow: 'impulsivity, aggression, and burning out before the finish line', mode: 'cardinal fire', approach: 'bold and direct' },
+  Taurus:      { gift: 'endurance, sensory wisdom, and the capacity to build lasting, tangible value', shadow: 'stubbornness, possessiveness, and resistance to necessary change', mode: 'fixed earth', approach: 'steady and grounded' },
+  Gemini:      { gift: 'intellectual agility, wit, and a natural ability to bridge ideas and people', shadow: 'scattered focus, superficiality, and chronic restlessness', mode: 'mutable air', approach: 'curious and versatile' },
+  Cancer:      { gift: 'profound empathy, intuitive knowing, and the ability to make others feel held', shadow: 'emotional over-protection, moodiness, and difficulty letting go', mode: 'cardinal water', approach: 'nurturing and intuitive' },
+  Leo:         { gift: 'magnetic warmth, creative generosity, and a natural gift for leadership and presence', shadow: 'ego attachment, need for constant validation, and drama when unseen', mode: 'fixed fire', approach: 'radiant and expressive' },
+  Virgo:       { gift: 'precision, healing instinct, and a devoted commitment to improvement and service', shadow: 'harsh self-criticism, perfectionism, and chronic worry about inadequacy', mode: 'mutable earth', approach: 'discerning and precise' },
+  Libra:       { gift: 'diplomatic grace, refined aesthetic vision, and a true gift for creating harmony', shadow: 'indecision, people-pleasing, and suppressing your own needs for peace', mode: 'cardinal air', approach: 'balanced and relational' },
+  Scorpio:     { gift: 'depth perception, emotional intensity, and extraordinary transformative capacity', shadow: 'control, jealousy, obsession, and difficulty releasing what no longer serves', mode: 'fixed water', approach: 'deep and investigative' },
+  Sagittarius: { gift: 'expansive vision, philosophical insight, and a contagious faith in what is possible', shadow: 'overextension, bluntness, and avoidance of detail or commitment', mode: 'mutable fire', approach: 'expansive and idealistic' },
+  Capricorn:   { gift: 'strategic long-term mastery, quiet ambition, and the discipline to build something that lasts', shadow: 'rigidity, emotional suppression, and equating worth with productivity', mode: 'cardinal earth', approach: 'structured and ambitious' },
+  Aquarius:    { gift: 'visionary originality, humanitarian awareness, and the ability to see what others miss', shadow: 'emotional detachment, contrarianism, and disconnection from personal intimacy', mode: 'fixed air', approach: 'innovative and independent' },
+  Pisces:      { gift: 'boundless compassion, creative imagination, and deep spiritual sensitivity', shadow: 'escapism, boundary dissolution, and difficulty separating self from others\' pain', mode: 'mutable water', approach: 'fluid and empathic' },
+};
+
+function ordinal(n) {
+  const s = ['th','st','nd','rd'], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function buildDetailedAnalysis(planet) {
+  const pf = PLANET_FULL[planet.name];
+  const sf = planet.sign ? SIGN_FULL[planet.sign] : null;
+  const hTheme = planet.house ? HOUSE_THEMES[planet.house] : null;
+  if (!pf || !sf) return [];
+
+  const paras = [];
+
+  // Core expression
+  paras.push(
+    `${planet.name} governs ${pf.domain}. In ${planet.sign}, ${pf.verb} with a ${sf.approach} quality — filtered through ${planet.sign}'s energy of ${SIGN_THEMES[planet.sign]}. This is a ${sf.mode} placement, meaning this part of you operates in a ${sf.mode.split(' ')[0]} register.`
+  );
+
+  // House context
+  if (hTheme) {
+    paras.push(
+      `Placed in the ${ordinal(planet.house)} house, this energy plays out most visibly in the realm of ${hTheme.toLowerCase().replace(/\.$/, '')}. This is where ${planet.name}'s themes and ${planet.sign}'s style meet real life most directly.`
+    );
+  }
+
+  // Gift
+  paras.push(`✦ Gift: ${sf.gift}.`);
+
+  // Shadow
+  paras.push(`◈ Shadow: ${sf.shadow}. When this placement is under pressure or unexpressed, these patterns tend to surface first — not as flaws, but as signals pointing back toward the gift.`);
+
+  // Retrograde note
+  if (planet.retrograde) {
+    paras.push(`℞ Retrograde: ${planet.name} was retrograde at your birth, suggesting its themes are more internalised and deeply personal. You may have had to unlearn external definitions of what this planet means before discovering your own relationship with it.`);
+  }
+
+  return paras;
+}
+
 // ─── SVG geometry ─────────────────────────────────────────────────────────
 const CX = 280, CY = 280;
 
@@ -216,6 +291,7 @@ const MAIN_ASPECTS = ['conjunction','sextile','square','trine','opposition'];
 // ─── Component ────────────────────────────────────────────────────────────
 export default function ChartView() {
   const [tooltip, setTooltip] = useState(null);
+  const [expanded, setExpanded] = useState(null);
   const containerRef = useRef(null);
   const chart = getChart();
   if (!chart) return null;
@@ -469,27 +545,77 @@ export default function ChartView() {
         )}
       </div>
 
-      {/* ── Natal placements list ── */}
+      {/* ── Natal placements list (expandable) ── */}
       <div className="mt-6">
         <h3 className="text-text-dim text-xs uppercase tracking-wider mb-3">Natal Placements</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div className="space-y-2">
           {planets.map(p => {
             const color = PLANET_COLORS[p.name] || '#444';
             const glyph = PLANET_GLYPHS[p.name] || p.name.charAt(0);
+            const isOpen = expanded === p.name;
+            const analysis = buildDetailedAnalysis(p);
+            const hasAnalysis = analysis.length > 0;
             return (
               <div key={p.name}
-                   className="bg-void-light border border-border rounded-lg px-3 py-2.5 flex items-center gap-3">
-                <span style={{ color }} className="text-xl shrink-0">{glyph}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-text-primary text-sm font-medium leading-tight">
-                    {p.name}{p.retrograde?' ℞':''}
+                   className="bg-void-light border border-border rounded-xl overflow-hidden transition-colors">
+                {/* Header row */}
+                <button
+                  onClick={() => hasAnalysis && setExpanded(isOpen ? null : p.name)}
+                  className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-colors ${hasAnalysis ? 'cursor-pointer hover:bg-white/5' : 'cursor-default'}`}
+                >
+                  {/* Planet glyph */}
+                  <span style={{ color }} className="text-xl shrink-0 w-6 text-center">{glyph}</span>
+
+                  {/* Name + position */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-text-primary text-sm font-semibold leading-tight">
+                      {p.name}{p.retrograde ? ' ℞' : ''}
+                    </p>
+                    <p className="text-text-dim text-xs mt-0.5">
+                      {SIGN_GLYPHS[p.sign]} {p.sign}
+                      {p.degree ? ` ${p.degree.degrees}°${String(p.degree.minutes).padStart(2,'0')}'` : ''}
+                      {p.house ? ` · House ${p.house}` : ''}
+                    </p>
+                  </div>
+
+                  {/* One-line teaser */}
+                  <p className="text-text-dim text-xs hidden sm:block max-w-[160px] truncate shrink-0">
+                    {SIGN_THEMES[p.sign] || ''}
                   </p>
-                  <p className="text-text-dim text-xs mt-0.5">
-                    {SIGN_GLYPHS[p.sign]} {p.sign}
-                    {p.degree ? ` ${p.degree.degrees}°${String(p.degree.minutes).padStart(2,'0')}'` : ''}
-                    {p.house ? ` · House ${p.house}` : ''}
-                  </p>
-                </div>
+
+                  {/* Chevron */}
+                  {hasAnalysis && (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                         className={`shrink-0 text-text-dim transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  )}
+                </button>
+
+                {/* Expanded analysis */}
+                {isOpen && (
+                  <div className="px-4 pb-5 pt-1 border-t border-border">
+                    <div className="space-y-3 mt-3">
+                      {analysis.map((para, i) => {
+                        // Style gift / shadow / retrograde lines differently
+                        const isGift = para.startsWith('✦');
+                        const isShadow = para.startsWith('◈');
+                        const isRetro = para.startsWith('℞');
+                        return (
+                          <p key={i} className={`text-sm leading-relaxed ${
+                            isGift   ? 'text-gold' :
+                            isShadow ? 'text-amber' :
+                            isRetro  ? 'text-purple-text' :
+                            i === 0  ? 'text-text-primary' :
+                            'text-text-secondary'
+                          }`}>
+                            {para}
+                          </p>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })}
