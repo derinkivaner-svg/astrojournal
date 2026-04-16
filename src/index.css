@@ -1,0 +1,56 @@
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-void: #0d0b1a;
+  --color-void-light: #141125;
+  --color-void-lighter: #1a1730;
+  --color-gold: #c9a84c;
+  --color-gold-dim: #a68a3a;
+  --color-gold-glow: rgba(201, 168, 76, 0.15);
+  --color-purple-mid: rgba(180, 140, 255, 0.2);
+  --color-purple-text: #b48cff;
+  --color-silver: #c0c0c0;
+  --color-amber: #e8a838;
+  --color-moon-silver: #d4d4e0;
+  --color-text-primary: #e8e6f0;
+  --color-text-secondary: #9896a8;
+  --color-text-dim: #6b6980;
+  --color-border: rgba(180, 140, 255, 0.1);
+  --color-border-gold: rgba(201, 168, 76, 0.3);
+  --font-heading: 'Playfair Display', Georgia, serif;
+  --font-body: 'Inter', -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0d0b1a;
+  color: #e8e6f0;
+  font-family: 'Inter', -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #0d0b1a;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(180, 140, 255, 0.2);
+  border-radius: 3px;
+}
+
+textarea:focus, input:focus, button:focus-visible {
+  outline: 1px solid rgba(201, 168, 76, 0.5);
+  outline-offset: 1px;
+}
