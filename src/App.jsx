@@ -45,48 +45,62 @@ function App() {
     setChart(null);
   }
 
+  const GearIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+      <path d="M10 13a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M17.4 12.2a1.5 1.5 0 00.3 1.65l.05.06a1.82 1.82 0 01-1.29 3.1 1.82 1.82 0 01-1.29-.53l-.06-.06a1.5 1.5 0 00-1.65-.3 1.5 1.5 0 00-.91 1.37V18a1.82 1.82 0 01-3.64 0v-.09A1.5 1.5 0 008 16.53a1.5 1.5 0 00-1.65.3l-.06.06a1.82 1.82 0 01-2.58-2.58l.06-.06a1.5 1.5 0 00.3-1.65 1.5 1.5 0 00-1.37-.91H2a1.82 1.82 0 010-3.64h.09A1.5 1.5 0 003.47 8a1.5 1.5 0 00-.3-1.65l-.06-.06a1.82 1.82 0 012.58-2.58l.06.06a1.5 1.5 0 001.65.3H7.5a1.5 1.5 0 00.91-1.37V2a1.82 1.82 0 013.64 0v.09a1.5 1.5 0 00.91 1.37 1.5 1.5 0 001.65-.3l.06-.06a1.82 1.82 0 012.58 2.58l-.06.06a1.5 1.5 0 00-.3 1.65V7.5a1.5 1.5 0 001.37.91H18a1.82 1.82 0 010 3.64h-.09a1.5 1.5 0 00-1.37.91z" stroke="currentColor" strokeWidth="1.5" />
+    </svg>
+  );
+
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Top bar */}
-      <header className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-border bg-void-light/50 backdrop-blur-sm sticky top-0 z-40">
-        <div className="flex items-center gap-2">
-          <span className="text-gold text-lg">✦</span>
-          <h1 className="font-[family-name:var(--font-heading)] text-lg text-text-primary font-semibold">
-            AstroJournal
-          </h1>
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-void-light/80 backdrop-blur-sm border-b border-border">
+        {/* Title row */}
+        <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+          <div className="flex items-center gap-2">
+            <span className="text-gold text-lg">✦</span>
+            <h1 className="font-[family-name:var(--font-heading)] text-lg text-text-primary font-semibold">
+              AstroJournal
+            </h1>
+          </div>
+
+          {/* Desktop nav — hidden on mobile */}
+          <nav className="hidden md:flex gap-1">
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors cursor-pointer ${
+                  tab === t.id ? 'bg-gold/15 text-gold' : 'text-text-secondary hover:text-text-primary'
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </nav>
+
+          <button onClick={() => setSettingsOpen(true)}
+            className="p-2 text-text-dim hover:text-gold transition-colors cursor-pointer">
+            <GearIcon />
+          </button>
         </div>
 
-        {/* Tab nav */}
-        <nav className="flex gap-1">
-          {TABS.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-3 py-1.5 text-sm rounded-lg transition-colors cursor-pointer ${
-                tab === t.id
-                  ? 'bg-gold/15 text-gold'
-                  : 'text-text-secondary hover:text-text-primary'
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-
-        {/* Settings gear */}
-        <button
-          onClick={() => setSettingsOpen(true)}
-          className="p-2 text-text-dim hover:text-gold transition-colors cursor-pointer"
-        >
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-            <path d="M10 13a3 3 0 100-6 3 3 0 000 6z" stroke="currentColor" strokeWidth="1.5" />
-            <path d="M17.4 12.2a1.5 1.5 0 00.3 1.65l.05.06a1.82 1.82 0 01-1.29 3.1 1.82 1.82 0 01-1.29-.53l-.06-.06a1.5 1.5 0 00-1.65-.3 1.5 1.5 0 00-.91 1.37V18a1.82 1.82 0 01-3.64 0v-.09A1.5 1.5 0 008 16.53a1.5 1.5 0 00-1.65.3l-.06.06a1.82 1.82 0 01-2.58-2.58l.06-.06a1.5 1.5 0 00.3-1.65 1.5 1.5 0 00-1.37-.91H2a1.82 1.82 0 010-3.64h.09A1.5 1.5 0 003.47 8a1.5 1.5 0 00-.3-1.65l-.06-.06a1.82 1.82 0 012.58-2.58l.06.06a1.5 1.5 0 001.65.3H7.5a1.5 1.5 0 00.91-1.37V2a1.82 1.82 0 013.64 0v.09a1.5 1.5 0 00.91 1.37 1.5 1.5 0 001.65-.3l.06-.06a1.82 1.82 0 012.58 2.58l-.06.06a1.5 1.5 0 00-.3 1.65V7.5a1.5 1.5 0 001.37.91H18a1.82 1.82 0 010 3.64h-.09a1.5 1.5 0 00-1.37.91z" stroke="currentColor" strokeWidth="1.5" />
-          </svg>
-        </button>
+        {/* Mobile nav — scrollable strip, hidden on md+ */}
+        <div className="md:hidden border-t border-border/40 overflow-x-auto"
+             style={{ scrollbarWidth: 'none' }}>
+          <nav className="flex px-3 pb-2 pt-1.5 gap-1 w-max">
+            {TABS.map(t => (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                className={`px-3 py-1.5 text-sm rounded-lg transition-colors cursor-pointer whitespace-nowrap ${
+                  tab === t.id ? 'bg-gold/15 text-gold' : 'text-text-secondary hover:text-text-primary'
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </nav>
+        </div>
       </header>
 
       {/* Main content */}
-      <main className="flex-1">
+      <main className="flex-1 overflow-x-hidden">
         {tab === 'calendar' && <Calendar onSelectDay={handleSelectDay} />}
         {tab === 'day' && <DayView date={selectedDate} onChangeDate={setSelectedDate} onOpenJournal={() => setTab('journal')} />}
         {tab === 'week' && <WeekView />}

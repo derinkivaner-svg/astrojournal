@@ -120,12 +120,12 @@ export default function JournalView({ onNavigateToDay }) {
 
         {/* Action buttons */}
         {selecting ? (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button onClick={selectAll}
                     className="text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
-              Select all
+              All
             </button>
-            <span className="text-border">|</span>
+            <span className="text-border text-xs">|</span>
             <button onClick={selectNone}
                     className="text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
               None
@@ -133,16 +133,16 @@ export default function JournalView({ onNavigateToDay }) {
             <button
               onClick={handleExport}
               disabled={selected.size === 0}
-              className={`ml-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
                 selected.size > 0
                   ? 'bg-gold/20 border border-gold/40 text-gold hover:bg-gold/30'
                   : 'bg-void border border-border text-text-dim cursor-not-allowed'
               }`}
             >
-              Export {selected.size > 0 ? `(${selected.size})` : ''}
+              Export{selected.size > 0 ? ` (${selected.size})` : ''}
             </button>
             <button onClick={exitSelect}
-                    className="ml-1 px-3 py-1.5 bg-void border border-border rounded-lg text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
+                    className="px-3 py-1.5 bg-void border border-border rounded-lg text-xs text-text-secondary hover:text-text-primary transition-colors cursor-pointer">
               Cancel
             </button>
           </div>
@@ -221,9 +221,9 @@ export default function JournalView({ onNavigateToDay }) {
                   )}
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2 mb-1">
-                      <h3 className="font-[family-name:var(--font-heading)] text-base text-text-primary font-semibold">
-                        {format(date, 'EEEE, MMMM d, yyyy')}
+                    <div className="flex flex-wrap items-baseline justify-between gap-x-2 mb-1">
+                      <h3 className="font-[family-name:var(--font-heading)] text-sm sm:text-base text-text-primary font-semibold">
+                        {format(date, 'EEE, MMM d, yyyy')}
                       </h3>
                       <span className="text-text-dim text-xs shrink-0">{ruler} Day</span>
                     </div>

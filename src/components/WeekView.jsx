@@ -63,8 +63,11 @@ export default function WeekView() {
             <path d="M13 4L7 10L13 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </button>
-        <h2 className="font-[family-name:var(--font-heading)] text-2xl text-text-primary">
-          {format(weekStart, 'MMM d')} – {format(weekEnd, 'MMM d, yyyy')}
+        <h2 className="font-[family-name:var(--font-heading)] text-lg sm:text-2xl text-text-primary text-center">
+          {format(weekStart, 'MMM d')} – {format(weekEnd, 'MMM d')}
+          <span className="block sm:inline text-text-dim text-sm sm:text-2xl sm:ml-1">
+            {format(weekEnd, ', yyyy')}
+          </span>
         </h2>
         <button
           onClick={() => setAnchor(addWeeks(anchor, 1))}
@@ -117,15 +120,15 @@ export default function WeekView() {
               return (
                 <div
                   key={i}
-                  className="bg-void-light border border-border rounded-lg p-4 flex gap-4"
+                  className="bg-void-light border border-border rounded-lg p-3 sm:p-4 flex gap-3 sm:gap-4"
                 >
-                  <div className="shrink-0 w-20 text-center">
+                  <div className="shrink-0 w-16 sm:w-20 text-center">
                     <p className="text-text-primary text-sm font-medium">{format(day, 'EEE')}</p>
                     <p className="text-text-dim text-xs">{format(day, 'MMM d')}</p>
                     <p className="text-xs mt-1">{moon.emoji}</p>
                     <p className="text-text-dim text-[10px]">{ruler}</p>
                   </div>
-                  <p className="text-text-secondary text-sm leading-relaxed flex-1">
+                  <p className="text-text-secondary text-sm leading-relaxed flex-1 min-w-0">
                     {summary}
                   </p>
                 </div>

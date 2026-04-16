@@ -73,9 +73,9 @@ export default function DayView({ date, onChangeDate, onOpenJournal }) {
             <path d="M13 4L7 10L13 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
         </button>
-        <div className="text-center">
-          <h2 className="font-[family-name:var(--font-heading)] text-2xl text-text-primary">
-            {format(date, 'EEEE, MMMM d')}
+        <div className="text-center min-w-0">
+          <h2 className="font-[family-name:var(--font-heading)] text-xl sm:text-2xl text-text-primary leading-tight">
+            {format(date, 'EEE, MMM d')}
           </h2>
           <p className="text-text-secondary text-sm mt-1">
             {moonPhase.emoji} {moonPhase.phase} &middot; {dayRuler} Day
@@ -116,10 +116,10 @@ export default function DayView({ date, onChangeDate, onOpenJournal }) {
         <h3 className="text-text-dim text-xs uppercase tracking-wider mb-3">Today's Sky</h3>
         <div className="flex flex-wrap gap-2">
           {positions.map(p => (
-            <div key={p.planet} className="flex items-center gap-1.5 bg-void border border-border rounded-lg px-3 py-2">
-              <span className="text-xs text-text-secondary font-medium" title={p.planet}>{p.planet}</span>
-              <span className="text-lg text-gold" title={p.sign}>{SIGN_GLYPHS[p.sign] || p.sign}</span>
-              <span className="text-xs text-text-dim">{p.degree.toFixed(0)}°</span>
+            <div key={p.planet} className="flex items-center gap-1 bg-void border border-border rounded-lg px-2 py-1.5 sm:px-3 sm:py-2">
+              <span className="text-[11px] sm:text-xs text-text-secondary font-medium" title={p.planet}>{p.planet}</span>
+              <span className="text-base sm:text-lg text-gold" title={p.sign}>{SIGN_GLYPHS[p.sign] || p.sign}</span>
+              <span className="text-[11px] sm:text-xs text-text-dim">{p.degree.toFixed(0)}°</span>
             </div>
           ))}
         </div>
