@@ -42,7 +42,8 @@ export function saveJournalEntry(dateStr, text) {
 export function getAllJournalDates() {
   try {
     const all = JSON.parse(localStorage.getItem(JOURNAL_KEY) || '{}');
-    return Object.keys(all).filter(k => all[k]);
+    // Only return daily entries (yyyy-MM-dd format); weekly keys start with "week_"
+    return Object.keys(all).filter(k => all[k] && /^\d{4}-\d{2}-\d{2}$/.test(k));
   } catch { return []; }
 }
 

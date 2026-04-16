@@ -152,23 +152,58 @@ export function parseChartText(text) {
     });
   }
 
-  // Parse house cusps
+  // Parse house cusps — multiple format strategies
+  const ROMAN = { I:1, II:2, III:3, IV:4, V:5, VI:6, VII:7, VIII:8, IX:9, X:10, XI:11, XII:12 };
+  const ROMAN_RE = /^(XII|VIII|VII|VI|IV|III|II|XI|IX|X|I|V)\b/;
+
+  function extractHouseSignDegree(lineStr) {
+    let sign = null;
+    for (const s of SIGNS) { if (lineStr.includes(s)) { sign = s; break; } }
+    if (!sign) {
+      for (const [sym, s] of Object.entries(SIGN_SYMBOLS)) { if (lineStr.includes(sym)) { sign = s; break; } }
+    }
+    if (!sign) {
+      for (const [abbr, s] of Object.entries(SIGN_ABBREVS)) {
+        const abbrRe = new RegExp(`\\b${abbr}\\b`, 'i');
+        if (abbrRe.test(lineStr)) { sign = s; break; }
+      }
+    }
+    const degree = parseDegree(lineStr);
+    return { sign, degree };
+  }
+
   for (const line of lines) {
-    const houseMatch = line.match(/(?:House|Cusp)\s*(\d+)\s*[:\-]?\s*(.*)/i);
-    if (houseMatch) {
-      const houseNum = parseInt(houseMatch[1], 10);
-      const rest = houseMatch[2];
-      let sign = null;
-      for (const s of SIGNS) {
-        if (rest.includes(s)) { sign = s; break; }
+    let houseNum = null;
+    let rest = line;
+
+    // Strategy 1: "House N:" or "Cusp N:"
+    const namedMatch = line.match(/(?:House|Cusp)\s*(\d+)\s*[:\-]?\s*(.*)/i);
+    if (namedMatch) {
+      houseNum = parseInt(namedMatch[1], 10);
+      rest = namedMatch[2];
+    }
+
+    // Strategy 2: Roman numeral at start of line, e.g. "VII  Scorpio 16°24'"
+    if (!houseNum) {
+      const romanMatch = line.match(ROMAN_RE);
+      if (romanMatch) {
+        houseNum = ROMAN[romanMatch[1]];
+        rest = line.slice(romanMatch[0].length).trim();
       }
-      if (!sign) {
-        for (const [abbr, s] of Object.entries(SIGN_ABBREVS)) {
-          if (rest.includes(abbr)) { sign = s; break; }
-        }
+    }
+
+    // Strategy 3: bare number at start "1 Scorpio 16°24'" or "1. Scorpio 16°24'"
+    if (!houseNum) {
+      const numMatch = line.match(/^(\d{1,2})[.\s:]\s*(.*)/);
+      if (numMatch) {
+        const n = parseInt(numMatch[1], 10);
+        if (n >= 1 && n <= 12) { houseNum = n; rest = numMatch[2]; }
       }
-      const degree = parseDegree(rest);
-      if (houseNum >= 1 && houseNum <= 12) {
+    }
+
+    if (houseNum && houseNum >= 1 && houseNum <= 12) {
+      const { sign, degree } = extractHouseSignDegree(rest);
+      if (sign && !result.houses.find(h => h.house === houseNum)) {
         result.houses.push({ house: houseNum, sign, degree });
       }
     }

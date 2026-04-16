@@ -234,11 +234,26 @@ function sectorPath(startLon, endLon, r1, r2, ascLon) {
 }
 
 function getHouseCusps(chart, ascLon) {
-  return Array.from({ length: 12 }, (_, i) => {
+  // First pass: read parsed house data
+  const cusps = Array.from({ length: 12 }, (_, i) => {
     const cusp = chart.houses?.find(h => h.house === i + 1);
     if (cusp?.sign) return getEclLon(cusp.sign, cusp.degree);
-    return ((ascLon + i * 30) % 360 + 360) % 360;
+    return null;
   });
+
+  // House 1 is always the Ascendant (exact degree)
+  cusps[0] = ascLon;
+
+  // House 10 = MC if not parsed from house data
+  if (cusps[9] === null) {
+    const mc = chart.planets?.find(p => p.name === 'MC');
+    if (mc?.sign) cusps[9] = getEclLon(mc.sign, mc.degree);
+  }
+
+  // Fill any remaining nulls with equal-house fallback
+  return cusps.map((c, i) =>
+    c !== null ? c : ((ascLon + i * 30) % 360 + 360) % 360
+  );
 }
 
 // Radial collision avoidance: keeps exact angle, shifts radius if overlap detected
@@ -290,8 +305,9 @@ const MAIN_ASPECTS = ['conjunction','sextile','square','trine','opposition'];
 
 // ─── Component ────────────────────────────────────────────────────────────
 export default function ChartView() {
-  const [tooltip, setTooltip] = useState(null);
-  const [expanded, setExpanded] = useState(null);
+  const [tooltip, setTooltip]           = useState(null);
+  const [expanded, setExpanded]         = useState(null);         // planet name
+  const [expandedAspect, setExpandedAspect] = useState(null);    // aspect index
   const containerRef = useRef(null);
   const chart = getChart();
   if (!chart) return null;
@@ -401,7 +417,24 @@ export default function ChartView() {
             </g>
           ))}
 
-          {/* 3. Zodiac ring borders */}
+          {/* 3. Degree tick marks inside zodiac ring */}
+          {Array.from({ length: 360 }, (_, lon) => {
+            if (lon % 30 === 0) return null; // sign boundaries already shown by sector borders
+            const angle = toAngle(lon, ascLon);
+            const isTen  = lon % 10 === 0;
+            const isFive = lon % 5  === 0;
+            const len = isTen ? 10 : isFive ? 7 : 4;
+            const sw  = isTen ? 0.7 : isFive ? 0.5 : 0.35;
+            const [x1, y1] = polarXY(angle, R.zodiacInner);
+            const [x2, y2] = polarXY(angle, R.zodiacInner + len);
+            return (
+              <line key={lon} x1={x1} y1={y1} x2={x2} y2={y2}
+                    stroke="rgba(0,0,0,0.28)" strokeWidth={sw}
+                    style={{ pointerEvents: 'none' }} />
+            );
+          })}
+
+          {/* 4a. Zodiac ring borders */}
           <circle cx={CX} cy={CY} r={R.zodiacOuter} fill="none" stroke="#2a2a2a" strokeWidth="1.2" />
           <circle cx={CX} cy={CY} r={R.zodiacInner} fill="none" stroke="#555"    strokeWidth="0.8" />
 
@@ -622,24 +655,68 @@ export default function ChartView() {
         </div>
       </div>
 
-      {/* ── Aspects list ── */}
+      {/* ── Aspects list (expandable) ── */}
       {chart.aspects?.filter(a => MAIN_ASPECTS.includes(a.type)).length > 0 && (
         <div className="mt-6">
           <h3 className="text-text-dim text-xs uppercase tracking-wider mb-3">Natal Aspects</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-            {chart.aspects.filter(a => MAIN_ASPECTS.includes(a.type)).map((a, i) => (
-              <div key={i}
-                   className="bg-void-light border border-border rounded-lg px-3 py-2 flex items-center gap-2.5">
-                <span style={{ color: ASPECT_COLORS[a.type]||'#888' }}
-                      className="text-xs font-semibold capitalize shrink-0 w-8">
-                  {a.type.slice(0,3)}
-                </span>
-                <p className="text-text-secondary text-xs">
-                  {a.planet1} · {a.planet2}
-                  {a.orb != null && <span className="text-text-dim ml-1">{a.orb}°</span>}
-                </p>
-              </div>
-            ))}
+          <div className="space-y-2">
+            {chart.aspects.filter(a => MAIN_ASPECTS.includes(a.type)).map((a, i) => {
+              const color  = ASPECT_COLORS[a.type] || '#888';
+              const isOpen = expandedAspect === i;
+              const g1     = PLANET_GLYPHS[a.planet1] || a.planet1?.charAt(0) || '?';
+              const g2     = PLANET_GLYPHS[a.planet2] || a.planet2?.charAt(0) || '?';
+              const c1     = PLANET_COLORS[a.planet1] || '#666';
+              const c2     = PLANET_COLORS[a.planet2] || '#666';
+              return (
+                <div key={i} className="bg-void-light border border-border rounded-xl overflow-hidden">
+                  <button
+                    onClick={() => setExpandedAspect(isOpen ? null : i)}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    {/* Aspect type badge */}
+                    <span style={{ color, borderColor: color + '44' }}
+                          className="text-xs font-bold capitalize border rounded-full px-2 py-0.5 shrink-0 min-w-[56px] text-center bg-white/5">
+                      {a.type}
+                    </span>
+
+                    {/* Planets */}
+                    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+                      <span style={{ color: c1 }} className="text-base">{g1}</span>
+                      <span className="text-text-dim text-xs">{a.planet1}</span>
+                      <span className="text-text-dim text-xs mx-1">·</span>
+                      <span style={{ color: c2 }} className="text-base">{g2}</span>
+                      <span className="text-text-dim text-xs">{a.planet2}</span>
+                    </div>
+
+                    {/* Orb */}
+                    {a.orb != null && (
+                      <span className="text-text-dim text-xs shrink-0">{a.orb}° orb</span>
+                    )}
+
+                    {/* Chevron */}
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                         className={`shrink-0 text-text-dim transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}>
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+
+                  {/* Expanded body */}
+                  {isOpen && (
+                    <div className="px-4 pb-4 pt-0 border-t border-border">
+                      <p className="text-text-secondary text-sm leading-relaxed mt-3">
+                        {ASPECT_MEANINGS[a.type] || ''}
+                      </p>
+                      <p className="text-text-dim text-xs mt-2">
+                        <span style={{ color: c1 }}>{g1} {a.planet1}</span>
+                        {' '}forms a {a.type} with{' '}
+                        <span style={{ color: c2 }}>{g2} {a.planet2}</span>
+                        {a.orb != null ? ` within a ${a.orb}° orb.` : '.'}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

@@ -8,6 +8,8 @@ export default function WeekView() {
   const [anchor, setAnchor] = useState(new Date());
   const [journal, setJournal] = useState('');
   const [saved, setSaved] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const weekStart = startOfWeek(anchor, { weekStartsOn: 0 });
   const weekEnd = endOfWeek(anchor, { weekStartsOn: 0 });
@@ -23,14 +25,30 @@ export default function WeekView() {
   }, [weekKey]);
 
   useEffect(() => {
-    setJournal(getJournalEntry(journalKey) || '');
+    const existing = getJournalEntry(journalKey) || '';
+    setJournal(existing);
     setSaved(false);
+    setIsEditing(!existing);
   }, [journalKey]);
 
   function handleSave() {
     saveJournalEntry(journalKey, journal);
     setSaved(true);
+    setIsEditing(false);
     setTimeout(() => setSaved(false), 2000);
+  }
+
+  function handleCopy() {
+    const parts = [
+      `AstroJournal — Week of ${format(weekStart, 'MMM d')}–${format(weekEnd, 'MMM d, yyyy')}`,
+      '',
+    ];
+    if (reading?.overview)          parts.push('WEEKLY OVERVIEW', reading.overview, '');
+    if (reading?.journaling_prompt) parts.push('JOURNALING PROMPT', reading.journaling_prompt, '');
+    if (journal)                    parts.push('MY REFLECTION', journal);
+    navigator.clipboard.writeText(parts.join('\n'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
@@ -132,24 +150,71 @@ export default function WeekView() {
             <h3 className="font-[family-name:var(--font-heading)] text-lg text-text-primary mb-3">
               Weekly Reflection
             </h3>
-            <textarea
-              value={journal}
-              onChange={(e) => { setJournal(e.target.value); setSaved(false); }}
-              placeholder="Reflect on your week..."
-              className="w-full h-32 bg-void border border-border rounded-lg p-4 text-text-primary text-sm resize-none placeholder:text-text-dim/50"
-            />
-            <div className="flex gap-3 mt-3">
-              <button
-                onClick={handleSave}
-                className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-                  saved
-                    ? 'bg-green-900/30 border border-green-500/40 text-green-400'
-                    : 'bg-gold/20 border border-gold/40 text-gold hover:bg-gold/30'
-                }`}
-              >
-                {saved ? 'Saved!' : 'Save'}
-              </button>
-            </div>
+
+            {journal && !isEditing ? (
+              <div>
+                <div className="bg-void border border-border rounded-lg p-4 min-h-[64px]">
+                  <p className="text-text-primary text-sm leading-relaxed whitespace-pre-wrap">{journal}</p>
+                </div>
+                <div className="flex gap-3 mt-3">
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    className="px-5 py-2 bg-gold/20 border border-gold/40 text-gold rounded-lg text-sm font-medium hover:bg-gold/30 transition-colors cursor-pointer"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={handleCopy}
+                    className={`px-5 py-2 border rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                      copied
+                        ? 'bg-green-900/30 border-green-500/40 text-green-400'
+                        : 'bg-void border-border text-text-secondary hover:border-border-gold hover:text-gold'
+                    }`}
+                  >
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <textarea
+                  value={journal}
+                  onChange={(e) => { setJournal(e.target.value); setSaved(false); }}
+                  placeholder="Reflect on your week..."
+                  className="w-full h-32 bg-void border border-border rounded-lg p-4 text-text-primary text-sm resize-none placeholder:text-text-dim/50 focus:outline-none focus:border-gold/40"
+                />
+                <div className="flex gap-3 mt-3">
+                  <button
+                    onClick={handleSave}
+                    className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                      saved
+                        ? 'bg-green-900/30 border border-green-500/40 text-green-400'
+                        : 'bg-gold/20 border border-gold/40 text-gold hover:bg-gold/30'
+                    }`}
+                  >
+                    {saved ? 'Saved!' : 'Save'}
+                  </button>
+                  {journal && isEditing && (
+                    <button
+                      onClick={() => { setJournal(getJournalEntry(journalKey) || ''); setIsEditing(false); }}
+                      className="px-5 py-2 bg-void border border-border text-text-secondary rounded-lg text-sm font-medium hover:border-border-gold hover:text-gold transition-colors cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    onClick={handleCopy}
+                    className={`px-5 py-2 border rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                      copied
+                        ? 'bg-green-900/30 border-green-500/40 text-green-400'
+                        : 'bg-void border-border text-text-secondary hover:border-border-gold hover:text-gold'
+                    }`}
+                  >
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -6,6 +6,7 @@ import WeekView from './components/WeekView';
 import SeasonView from './components/SeasonView';
 import TransitsView from './components/TransitsView';
 import ChartView from './components/ChartView';
+import JournalView from './components/JournalView';
 import Settings from './components/Settings';
 import { getChart } from './utils/storage';
 
@@ -16,6 +17,7 @@ const TABS = [
   { id: 'day', label: 'Day' },
   { id: 'transits', label: 'Transits' },
   { id: 'chart', label: 'Your Chart' },
+  { id: 'journal', label: 'Journal' },
 ];
 
 function App() {
@@ -30,6 +32,11 @@ function App() {
   }
 
   function handleSelectDay(date) {
+    setSelectedDate(date);
+    setTab('day');
+  }
+
+  function handleJournalNavigateToDay(date) {
     setSelectedDate(date);
     setTab('day');
   }
@@ -81,11 +88,12 @@ function App() {
       {/* Main content */}
       <main className="flex-1">
         {tab === 'calendar' && <Calendar onSelectDay={handleSelectDay} />}
-        {tab === 'day' && <DayView date={selectedDate} onChangeDate={setSelectedDate} />}
+        {tab === 'day' && <DayView date={selectedDate} onChangeDate={setSelectedDate} onOpenJournal={() => setTab('journal')} />}
         {tab === 'week' && <WeekView />}
         {tab === 'season' && <SeasonView />}
         {tab === 'transits' && <TransitsView />}
         {tab === 'chart' && <ChartView />}
+        {tab === 'journal' && <JournalView onNavigateToDay={handleJournalNavigateToDay} />}
       </main>
 
       {/* Settings panel */}

@@ -12,52 +12,59 @@ const SIGN_GLYPHS = {
   Sagittarius: `♐${T}`, Capricorn: `♑${T}`, Aquarius: `♒${T}`, Pisces: `♓${T}`,
 };
 
-export default function DayView({ date, onChangeDate }) {
-  const [journal, setJournal] = useState('');
-  const [saved, setSaved] = useState(false);
+export default function DayView({ date, onChangeDate, onOpenJournal }) {
+  const [journal, setJournal]     = useState('');
+  const [saved, setSaved]         = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [copied, setCopied]       = useState(false);
 
-  const dateStr = format(date, 'yyyy-MM-dd');
-  const moonPhase = getMoonPhaseForDate(date);
-  const dayRuler = getPlanetaryDayRuler(date);
-  const positions = getPlanetaryPositions(date);
+  const dateStr    = format(date, 'yyyy-MM-dd');
+  const moonPhase  = getMoonPhaseForDate(date);
+  const dayRuler   = getPlanetaryDayRuler(date);
+  const positions  = getPlanetaryPositions(date);
 
-  const chart = getChart();
+  const chart   = getChart();
   const reading = useMemo(() => {
     if (!chart) return null;
     return generateDayReading(date, chart);
   }, [dateStr]);
 
   useEffect(() => {
-    setJournal(getJournalEntry(dateStr) || '');
+    const saved = getJournalEntry(dateStr) || '';
+    setJournal(saved);
     setSaved(false);
+    setIsEditing(!saved); // start in edit mode only when no existing entry
   }, [dateStr]);
 
   function handleSave() {
     saveJournalEntry(dateStr, journal);
     setSaved(true);
+    setIsEditing(false);
     setTimeout(() => setSaved(false), 2000);
   }
 
-  function handleCopyForAppleJournal() {
+  function handleCopy() {
     const parts = [
       `AstroJournal — ${format(date, 'EEEE, MMMM d, yyyy')}`,
       `${moonPhase.emoji} ${moonPhase.phase} | ${dayRuler} Day`,
       '',
     ];
     if (reading) {
-      if (reading.climate) parts.push('ASTROLOGICAL CLIMATE', reading.climate, '');
+      if (reading.affirmation)      parts.push('AFFIRMATION', reading.affirmation, '');
+      if (reading.climate)          parts.push('ASTROLOGICAL CLIMATE', reading.climate, '');
+      if (reading.soul_guidance)    parts.push('SOUL GUIDANCE', reading.soul_guidance, '');
       if (reading.journaling_prompt) parts.push('JOURNALING PROMPT', reading.journaling_prompt, '');
-      if (reading.soul_guidance) parts.push('SOUL GUIDANCE', reading.soul_guidance, '');
-      if (reading.affirmation) parts.push('AFFIRMATION', reading.affirmation, '');
     }
     if (journal) parts.push('MY JOURNAL', journal);
     navigator.clipboard.writeText(parts.join('\n'));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   return (
     <div className="p-4 sm:p-6 max-w-3xl mx-auto">
       {/* Date header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <button
           onClick={() => onChangeDate(subDays(date, 1))}
           className="p-2 text-text-secondary hover:text-gold transition-colors cursor-pointer"
@@ -92,8 +99,20 @@ export default function DayView({ date, onChangeDate }) {
         </button>
       </div>
 
+      {/* Affirmation — shown at top */}
+      {reading?.affirmation && (
+        <section className="mb-5 bg-gold-glow border border-border-gold rounded-xl p-4 text-center">
+          <h3 className="font-[family-name:var(--font-heading)] text-xs text-gold/70 uppercase tracking-wider mb-1.5">
+            Today's Affirmation
+          </h3>
+          <p className="font-[family-name:var(--font-heading)] text-lg text-gold leading-snug">
+            {reading.affirmation}
+          </p>
+        </section>
+      )}
+
       {/* Current sky positions */}
-      <div className="mb-6 bg-void-light border border-border rounded-xl p-4">
+      <div className="mb-5 bg-void-light border border-border rounded-xl p-4">
         <h3 className="text-text-dim text-xs uppercase tracking-wider mb-3">Today's Sky</h3>
         <div className="flex flex-wrap gap-2">
           {positions.map(p => (
@@ -106,10 +125,9 @@ export default function DayView({ date, onChangeDate }) {
         </div>
       </div>
 
-      {/* Reading sections */}
+      {/* Reading sections — Climate + Soul Guidance */}
       {reading && (
-        <div className="space-y-5">
-          {/* Astrological Climate */}
+        <div className="space-y-4 mb-5">
           {reading.climate && (
             <section className="bg-void-light border border-border rounded-xl p-5">
               <h3 className="font-[family-name:var(--font-heading)] text-lg text-purple-text mb-3">
@@ -119,19 +137,6 @@ export default function DayView({ date, onChangeDate }) {
             </section>
           )}
 
-          {/* Journaling Prompt */}
-          {reading.journaling_prompt && (
-            <section className="bg-void-light border-l-4 border-l-gold border border-border rounded-xl p-5">
-              <h3 className="font-[family-name:var(--font-heading)] text-lg text-gold mb-3">
-                Journaling Prompt
-              </h3>
-              <p className="text-text-primary leading-relaxed italic">
-                {reading.journaling_prompt}
-              </p>
-            </section>
-          )}
-
-          {/* Soul Guidance */}
           {reading.soul_guidance && (
             <section className="bg-void-light border border-border rounded-xl p-5">
               <h3 className="font-[family-name:var(--font-heading)] text-lg text-purple-text mb-3">
@@ -140,50 +145,100 @@ export default function DayView({ date, onChangeDate }) {
               <p className="text-text-primary leading-relaxed">{reading.soul_guidance}</p>
             </section>
           )}
-
-          {/* Affirmation */}
-          {reading.affirmation && (
-            <section className="bg-gold-glow border border-border-gold rounded-xl p-5 text-center">
-              <h3 className="font-[family-name:var(--font-heading)] text-sm text-gold/70 uppercase tracking-wider mb-2">
-                Affirmation
-              </h3>
-              <p className="font-[family-name:var(--font-heading)] text-xl text-gold">
-                {reading.affirmation}
-              </p>
-            </section>
-          )}
         </div>
       )}
 
-      {/* Journal entry */}
-      <div className="mt-8 bg-void-light border border-border rounded-xl p-5">
-        <h3 className="font-[family-name:var(--font-heading)] text-lg text-text-primary mb-3">
-          Journal Entry
-        </h3>
-        <textarea
-          value={journal}
-          onChange={(e) => { setJournal(e.target.value); setSaved(false); }}
-          placeholder="Write your thoughts for today..."
-          className="w-full h-40 bg-void border border-border rounded-lg p-4 text-text-primary text-sm resize-none placeholder:text-text-dim/50"
-        />
-        <div className="flex gap-3 mt-3">
-          <button
-            onClick={handleSave}
-            className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
-              saved
-                ? 'bg-green-900/30 border border-green-500/40 text-green-400'
-                : 'bg-gold/20 border border-gold/40 text-gold hover:bg-gold/30'
-            }`}
-          >
-            {saved ? 'Saved!' : 'Save'}
-          </button>
-          <button
-            onClick={handleCopyForAppleJournal}
-            className="px-5 py-2 bg-void border border-border text-text-secondary rounded-lg text-sm font-medium hover:border-border-gold hover:text-gold transition-colors cursor-pointer"
-          >
-            Copy for Apple Journal
-          </button>
+      {/* Journal section */}
+      <div className="bg-void-light border border-border rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-[family-name:var(--font-heading)] text-lg text-text-primary">
+            Journal Entry
+          </h3>
+          {onOpenJournal && (
+            <button
+              onClick={onOpenJournal}
+              className="text-xs text-text-dim hover:text-gold transition-colors cursor-pointer"
+            >
+              View all entries →
+            </button>
+          )}
         </div>
+
+        {/* Journaling Prompt — right above the entry */}
+        {reading?.journaling_prompt && (
+          <div className="mb-4 bg-void border-l-2 border-l-gold/60 rounded-r-lg pl-4 pr-3 py-3">
+            <p className="text-text-dim text-[10px] uppercase tracking-wider mb-1">Prompt</p>
+            <p className="text-text-secondary text-sm leading-relaxed italic">
+              {reading.journaling_prompt}
+            </p>
+          </div>
+        )}
+
+        {/* Entry display: read-only when saved, edit mode when new/editing */}
+        {journal && !isEditing ? (
+          <div>
+            <div className="bg-void border border-border rounded-lg p-4 min-h-[80px]">
+              <p className="text-text-primary text-sm leading-relaxed whitespace-pre-wrap">{journal}</p>
+            </div>
+            <div className="flex gap-3 mt-3">
+              <button
+                onClick={() => setIsEditing(true)}
+                className="px-5 py-2 bg-gold/20 border border-gold/40 text-gold rounded-lg text-sm font-medium hover:bg-gold/30 transition-colors cursor-pointer"
+              >
+                Edit
+              </button>
+              <button
+                onClick={handleCopy}
+                className={`px-5 py-2 border rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                  copied
+                    ? 'bg-green-900/30 border-green-500/40 text-green-400'
+                    : 'bg-void border-border text-text-secondary hover:border-border-gold hover:text-gold'
+                }`}
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div>
+            <textarea
+              value={journal}
+              onChange={(e) => { setJournal(e.target.value); setSaved(false); }}
+              placeholder="Write your thoughts for today..."
+              className="w-full h-40 bg-void border border-border rounded-lg p-4 text-text-primary text-sm resize-none placeholder:text-text-dim/50 focus:outline-none focus:border-gold/40"
+            />
+            <div className="flex gap-3 mt-3">
+              <button
+                onClick={handleSave}
+                className={`px-5 py-2 rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                  saved
+                    ? 'bg-green-900/30 border border-green-500/40 text-green-400'
+                    : 'bg-gold/20 border border-gold/40 text-gold hover:bg-gold/30'
+                }`}
+              >
+                {saved ? 'Saved!' : 'Save'}
+              </button>
+              {journal && isEditing && getJournalEntry(dateStr) && (
+                <button
+                  onClick={() => { setJournal(getJournalEntry(dateStr) || ''); setIsEditing(false); }}
+                  className="px-5 py-2 bg-void border border-border text-text-secondary rounded-lg text-sm font-medium hover:border-border-gold hover:text-gold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+              )}
+              <button
+                onClick={handleCopy}
+                className={`px-5 py-2 border rounded-lg text-sm font-medium transition-colors cursor-pointer ${
+                  copied
+                    ? 'bg-green-900/30 border-green-500/40 text-green-400'
+                    : 'bg-void border-border text-text-secondary hover:border-border-gold hover:text-gold'
+                }`}
+              >
+                {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
