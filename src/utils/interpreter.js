@@ -580,8 +580,7 @@ export function getActivePrompts(date, chartData) {
       if (!pos || pos.sign !== ev.sign) continue;
     }
 
-    const planetPrompt = TRANSIT_PLANET_PROMPTS[ev.planet];
-    if (!planetPrompt) continue;
+    if (!PLANET_THEMES[ev.planet] || !SIGN_THEMES[ev.sign]) continue;
 
     let priority;
     let detail;
@@ -599,15 +598,18 @@ export function getActivePrompts(date, chartData) {
       detail = `settling · day ${daysSince + 1} in ${ev.sign}`;
     }
 
-    const signTheme = SIGN_THEMES[ev.sign];
-    const lead = signTheme
-      ? `${ev.planet} is moving through ${ev.sign}, coloring its themes with ${signTheme.theme}.`
-      : `${ev.planet} is moving through ${ev.sign}.`;
+    // Personalize by user's natal house for this sign
+    const signIdx = SIGNS.indexOf(ev.sign);
+    const transitLon = norm360(signIdx * 30 + 15);
+    let house = findHouseForLongitude(transitLon, chartData.houses);
+    if (!house) house = findWholeSignHouse(ev.sign, ascSign);
 
     out.push({
       id: `ingress-${ev.planet}-${ev.sign}`,
-      text: `${lead} ${planetPrompt}`,
-      sourceTitle: `${ev.planet} in ${ev.sign}`,
+      text: buildIngressPromptText(ev.planet, ev.sign, house),
+      sourceTitle: house
+        ? `${ev.planet} in ${ev.sign} · ${ordinal(house)} house`
+        : `${ev.planet} in ${ev.sign}`,
       sourceDetail: detail,
       priority,
     });
@@ -620,20 +622,28 @@ export function getActivePrompts(date, chartData) {
     const daysDiff = Math.round((dayStart - evDate) / MS_PER_DAY);
     const absDiff = Math.abs(daysDiff);
     if (absDiff > 3) continue;
+    if (!PLANET_THEMES[ev.planet]) continue;
 
-    const planetPrompt = TRANSIT_PLANET_PROMPTS[ev.planet];
-    if (!planetPrompt) continue;
-
-    const label = ev.subtype === 'station_rx' ? 'stations retrograde' : 'stations direct';
     const priority = 0.7 - absDiff * 0.1;
     const when = daysDiff === 0 ? 'today'
       : daysDiff > 0 ? `${daysDiff} day${daysDiff > 1 ? 's' : ''} ago`
       : `in ${-daysDiff} day${-daysDiff > 1 ? 's' : ''}`;
 
+    // Personalize by user's natal house for the station sign
+    const signIdx = SIGNS.indexOf(ev.sign);
+    let house = null;
+    if (signIdx >= 0) {
+      const stationLon = norm360(signIdx * 30 + 15);
+      house = findHouseForLongitude(stationLon, chartData.houses)
+        || findWholeSignHouse(ev.sign, ascSign);
+    }
+
     out.push({
       id: `retro-${ev.planet}-${ev.subtype}-${ev.date}`,
-      text: `${ev.planet} ${label} — a moment to pause and review. ${planetPrompt}`,
-      sourceTitle: `${ev.planet} ${ev.subtype === 'station_rx' ? '℞ station' : 'direct station'}`,
+      text: buildStationPromptText(ev.planet, ev.subtype, house),
+      sourceTitle: house
+        ? `${ev.planet} ${ev.subtype === 'station_rx' ? '℞ station' : 'direct station'} · ${ordinal(house)} house`
+        : `${ev.planet} ${ev.subtype === 'station_rx' ? '℞ station' : 'direct station'}`,
       sourceDetail: when,
       priority,
     });
@@ -642,13 +652,19 @@ export function getActivePrompts(date, chartData) {
   // ── Natal transit aspects ──
   for (const asp of aspects.slice(0, 6)) {
     const key = `${asp.transitPlanet}-${asp.natalPlanet}`;
-    const text = TRANSIT_NATAL_PROMPTS[key]?.prompt
+    const basePrompt = TRANSIT_NATAL_PROMPTS[key]?.prompt
       || TRANSIT_PLANET_PROMPTS[asp.transitPlanet];
-    if (!text) continue;
+    if (!basePrompt) continue;
+    const natalHouse = asp.natalHouse;
+    const houseLead = natalHouse
+      ? `This aspect lands in your ${ordinal(natalHouse)} house — the area of ${HOUSE_THEMES[natalHouse]}. `
+      : '';
     out.push({
       id: `aspect-${asp.transitPlanet}-${asp.aspectType}-${asp.natalPlanet}`,
-      text,
-      sourceTitle: `${asp.transitPlanet} ${asp.aspectType} natal ${asp.natalPlanet}`,
+      text: `${houseLead}${basePrompt}`,
+      sourceTitle: natalHouse
+        ? `${asp.transitPlanet} ${asp.aspectType} natal ${asp.natalPlanet} · ${ordinal(natalHouse)} house`
+        : `${asp.transitPlanet} ${asp.aspectType} natal ${asp.natalPlanet}`,
       sourceDetail: `orb ${asp.orb.toFixed(1)}°`,
       priority: 0.4 + 0.35 * asp.exactness,
     });
@@ -675,6 +691,44 @@ export function getActivePrompts(date, chartData) {
 function parseYMD(s) {
   const [y, m, d] = s.split('-').map(Number);
   return new Date(y, m - 1, d);
+}
+
+function ordinal(n) {
+  const v = n % 100;
+  if (v >= 11 && v <= 13) return `${n}th`;
+  switch (n % 10) {
+    case 1: return `${n}st`;
+    case 2: return `${n}nd`;
+    case 3: return `${n}rd`;
+    default: return `${n}th`;
+  }
+}
+
+function buildIngressPromptText(planet, sign, house) {
+  const signTheme = SIGN_THEMES[sign];
+  const planetTheme = PLANET_THEMES[planet];
+  if (!house) {
+    const lead = signTheme
+      ? `${planet} is moving through ${sign}, coloring its themes with ${signTheme.theme}.`
+      : `${planet} is moving through ${sign}.`;
+    return `${lead} ${TRANSIT_PLANET_PROMPTS[planet] || ''}`.trim();
+  }
+  const houseTheme = HOUSE_THEMES[house];
+  const kw = signTheme?.keyword?.toLowerCase();
+  const bringClause = kw
+    ? `, and what would shift if you brought "${kw}" energy to it`
+    : '';
+  return `${planet} has moved into ${sign} in your ${ordinal(house)} house — the area of ${houseTheme}. For the next few weeks, ${planetTheme.domain} are being activated here through the lens of ${signTheme?.theme || sign}. Where in your ${houseTheme} do you sense ${planet} asking for attention${bringClause}?`;
+}
+
+function buildStationPromptText(planet, subtype, house) {
+  const planetTheme = PLANET_THEMES[planet];
+  const action = subtype === 'station_rx' ? 'stationing retrograde' : 'stationing direct';
+  const focus = subtype === 'station_rx' ? 'review, reconsider, and revisit' : 'clarify, integrate, and move forward with';
+  if (!house) {
+    return `${planet} is ${action} — a moment to ${focus} ${planetTheme.domain}. ${TRANSIT_PLANET_PROMPTS[planet] || ''}`.trim();
+  }
+  return `${planet} is ${action} in your ${ordinal(house)} house — the area of ${HOUSE_THEMES[house]}. This is a moment to ${focus} how ${planetTheme.domain} is showing up here. What in this part of your life has been asking for a second look?`;
 }
 
 // ─── GENERATE WEEK READING ───
