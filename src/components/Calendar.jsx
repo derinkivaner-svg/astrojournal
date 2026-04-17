@@ -133,12 +133,12 @@ export default function Calendar({ onSelectDay }) {
 
               {/* Event glyphs (mobile) */}
               {dayEvents.length > 0 && (
-                <div className="flex flex-wrap gap-0.5 sm:hidden" aria-label={`${dayEvents.length} events`}>
+                <div className="flex flex-wrap gap-1.5 sm:hidden" aria-label={`${dayEvents.length} events`}>
                   {dayEvents.slice(0, 4).map((ev, i) => (
                     <span
                       key={i}
                       title={ev.label}
-                      className={`inline-flex items-center justify-center leading-none text-[11px] px-1 py-0.5 rounded border ${EVENT_COLORS[ev.color] || EVENT_COLORS.ingress}`}
+                      className="inline-flex items-center justify-center leading-none text-[11px] text-gold"
                     >
                       {getEventGlyphs(ev)}
                     </span>
