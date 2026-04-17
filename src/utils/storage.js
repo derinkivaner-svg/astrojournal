@@ -1,7 +1,11 @@
-// localStorage utilities for AstroJournal
+// localStorage utilities for AstroJournal.
+// Writes also notify the sync layer, which in turn pushes to Supabase
+// when a user is logged in. Reads stay synchronous and hit localStorage.
 
-const CHART_KEY = 'astrojournal_chart';
-const JOURNAL_KEY = 'astrojournal_journals';
+import { notifyChartWritten, notifyJournalWritten } from './sync';
+
+const CHART_KEY    = 'astrojournal_chart';
+const JOURNAL_KEY  = 'astrojournal_journals';
 const READINGS_KEY = 'astrojournal_readings';
 const SETTINGS_KEY = 'astrojournal_settings';
 
@@ -14,6 +18,7 @@ export function getChart() {
 
 export function saveChart(chart) {
   localStorage.setItem(CHART_KEY, JSON.stringify(chart));
+  notifyChartWritten(chart);
 }
 
 export function clearChart() {
@@ -36,6 +41,7 @@ export function saveJournalEntry(dateStr, text) {
       delete all[dateStr];
     }
     localStorage.setItem(JOURNAL_KEY, JSON.stringify(all));
+    notifyJournalWritten(dateStr, text || '');
   } catch {}
 }
 

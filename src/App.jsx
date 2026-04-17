@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Onboarding from './components/Onboarding';
 import Calendar from './components/Calendar';
 import DayView from './components/DayView';
@@ -8,6 +8,8 @@ import TransitsView from './components/TransitsView';
 import ChartView from './components/ChartView';
 import JournalView from './components/JournalView';
 import Settings from './components/Settings';
+import AuthButton from './components/AuthButton';
+import { AuthProvider } from './context/AuthContext';
 import { getChart } from './utils/storage';
 
 const TABS = [
@@ -20,15 +22,29 @@ const TABS = [
   { id: 'journal', label: 'Journal' },
 ];
 
-function App() {
+function AppInner() {
   const [chart, setChart] = useState(() => getChart());
   const [tab, setTab] = useState('calendar');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // If no chart, show onboarding
+  // If no chart, show onboarding (with the auth button available so a
+  // returning user on a new device can sign in and pull their chart).
   if (!chart) {
-    return <Onboarding onComplete={(c) => setChart(c)} />;
+    return (
+      <div className="min-h-screen flex flex-col">
+        <header className="sticky top-0 z-40 bg-void-light/80 backdrop-blur-sm border-b border-border">
+          <div className="flex items-center justify-between px-4 sm:px-6 py-3">
+            <div className="flex items-center gap-2">
+              <span className="text-gold text-lg">✦</span>
+              <h1 className="font-[family-name:var(--font-heading)] text-lg text-text-primary font-semibold">AstroJournal</h1>
+            </div>
+            <AuthButton />
+          </div>
+        </header>
+        <Onboarding onComplete={(c) => setChart(c)} />
+      </div>
+    );
   }
 
   function handleSelectDay(date) {
@@ -77,10 +93,13 @@ function App() {
             ))}
           </nav>
 
-          <button onClick={() => setSettingsOpen(true)}
-            className="p-2 text-text-dim hover:text-gold transition-colors cursor-pointer">
-            <GearIcon />
-          </button>
+          <div className="flex items-center gap-1">
+            <AuthButton />
+            <button onClick={() => setSettingsOpen(true)}
+              className="p-2 text-text-dim hover:text-gold transition-colors cursor-pointer">
+              <GearIcon />
+            </button>
+          </div>
         </div>
 
         {/* Mobile nav — scrollable strip, hidden on md+ */}
@@ -117,6 +136,17 @@ function App() {
         onResetChart={handleResetChart}
       />
     </div>
+  );
+}
+
+function App() {
+  // Remount AppInner when remote sync completes so useState initializers
+  // re-read the (now updated) localStorage cache.
+  const [syncTick, setSyncTick] = useState(0);
+  return (
+    <AuthProvider onRemoteSynced={() => setSyncTick(t => t + 1)}>
+      <AppInner key={syncTick} />
+    </AuthProvider>
   );
 }
 
