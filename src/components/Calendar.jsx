@@ -13,12 +13,31 @@ const EVENT_COLORS = {
   retrograde: 'bg-amber/15 text-amber border-amber/30',
 };
 
-const EVENT_DOT_COLORS = {
-  moon: 'bg-moon-silver',
-  ingress: 'bg-purple-text',
-  sun: 'bg-gold',
-  retrograde: 'bg-amber',
+const PLANET_GLYPHS = {
+  Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Mars: '♂',
+  Jupiter: '♃', Saturn: '♄', Uranus: '♅', Neptune: '♆', Pluto: '♇',
 };
+
+const SIGN_GLYPHS = {
+  Aries: '♈', Taurus: '♉', Gemini: '♊', Cancer: '♋',
+  Leo: '♌', Virgo: '♍', Libra: '♎', Scorpio: '♏',
+  Sagittarius: '♐', Capricorn: '♑', Aquarius: '♒', Pisces: '♓',
+};
+
+function getEventGlyphs(ev) {
+  if (ev.type === 'lunation') {
+    const moon = ev.subtype === 'new_moon' ? '🌑' : '🌕';
+    return `${moon}${SIGN_GLYPHS[ev.sign] || ''}`;
+  }
+  if (ev.type === 'ingress') {
+    return `${PLANET_GLYPHS[ev.planet] || ''}${SIGN_GLYPHS[ev.sign] || ''}`;
+  }
+  if (ev.type === 'retrograde') {
+    const mark = ev.subtype === 'station_rx' ? '℞' : 'D';
+    return `${PLANET_GLYPHS[ev.planet] || ''}${mark}`;
+  }
+  return '•';
+}
 
 export default function Calendar({ onSelectDay }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -112,18 +131,20 @@ export default function Calendar({ onSelectDay }) {
                 </div>
               </div>
 
-              {/* Event dots (mobile) */}
+              {/* Event glyphs (mobile) */}
               {dayEvents.length > 0 && (
-                <div className="flex flex-wrap gap-1 sm:hidden" aria-label={`${dayEvents.length} events`}>
+                <div className="flex flex-wrap gap-0.5 sm:hidden" aria-label={`${dayEvents.length} events`}>
                   {dayEvents.slice(0, 4).map((ev, i) => (
                     <span
                       key={i}
                       title={ev.label}
-                      className={`w-1.5 h-1.5 rounded-full ${EVENT_DOT_COLORS[ev.color] || EVENT_DOT_COLORS.ingress}`}
-                    />
+                      className={`inline-flex items-center justify-center leading-none text-[11px] px-1 py-0.5 rounded border ${EVENT_COLORS[ev.color] || EVENT_COLORS.ingress}`}
+                    >
+                      {getEventGlyphs(ev)}
+                    </span>
                   ))}
                   {dayEvents.length > 4 && (
-                    <span className="text-[9px] leading-none text-text-dim">+{dayEvents.length - 4}</span>
+                    <span className="text-[9px] leading-none text-text-dim self-center">+{dayEvents.length - 4}</span>
                   )}
                 </div>
               )}
