@@ -466,33 +466,12 @@ export function generateDayReading(date, chartData) {
     climateParts.push(`${DAY_RULER_THEMES[dayRuler]} As a ${dayRuler} day, themes of ${rulerInfo.domain} are naturally emphasized.`);
   }
 
-  // ── JOURNALING PROMPT ──
-  // Priority: Lunation house prompt > Transit-natal prompt > Fallback
-  let journalingPrompt;
-  if (isLunation && lunationHouse) {
-    const templates = isNewMoon ? NEW_MOON_HOUSE_PROMPTS : FULL_MOON_HOUSE_PROMPTS;
-    const template = templates[lunationHouse];
-    if (template) {
-      journalingPrompt = template
-        .replace('{deg}', lunationDegree || '?')
-        .replace('{sign}', lunationSign || '?');
-    }
-  }
-
-  if (!journalingPrompt) {
-    if (aspects.length > 0) {
-      const top = aspects[0];
-      const key = `${top.transitPlanet}-${top.natalPlanet}`;
-      const specific = TRANSIT_NATAL_PROMPTS[key];
-      if (specific) {
-        journalingPrompt = specific.prompt;
-      } else {
-        journalingPrompt = TRANSIT_PLANET_PROMPTS[top.transitPlanet] || TRANSIT_PLANET_PROMPTS.Sun;
-      }
-    } else {
-      journalingPrompt = TRANSIT_PLANET_PROMPTS[dayRuler] || 'What is asking for your attention today that you keep postponing?';
-    }
-  }
+  // ── JOURNALING PROMPTS ──
+  // Build the full ranked list of active prompts, then surface the top one
+  // as the default (keeps backwards-compatible `journaling_prompt` field).
+  const prompts = getActivePrompts(date, chartData);
+  const journalingPrompt = prompts[0]?.text
+    || 'What is asking for your attention today that you keep postponing?';
 
   // ── SOUL GUIDANCE ──
   const nodeInfo = NODE_GUIDANCE[nodeSign];
@@ -517,9 +496,185 @@ export function generateDayReading(date, chartData) {
   return {
     climate: climateParts.join(' '),
     journaling_prompt: journalingPrompt,
+    prompts,
     soul_guidance: soulGuidance,
     affirmation,
   };
+}
+
+// ─── ACTIVE PROMPTS FOR A DATE ───
+// Returns a ranked list of journaling prompts that are "active" for the given
+// day. Transits stay active across a window rather than only on the exact day:
+//   - Lunations:   ±2 days,   priority peaks on the exact day
+//   - Ingresses:   -2 to +21 days (while planet is still in that sign),
+//                  priority peaks in the first week after ingress
+//   - Retrograde stations: ±3 days around station
+//   - Natal transit aspects: within orb, priority scales with exactness
+//   - Day ruler:   always present as a low-priority fallback
+export function getActivePrompts(date, chartData) {
+  if (!chartData) return [];
+  const SIGNS = ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'];
+
+  const positions = getPlanetaryPositions(date);
+  const aspects = findTransitAspects(positions, chartData.planets || []);
+  const dayRuler = getPlanetaryDayRuler(date);
+
+  const asc = (chartData.planets || []).find(p => p.name === 'ASC');
+  const natalSun = (chartData.planets || []).find(p => p.name === 'Sun');
+  const ascSign = asc?.sign || natalSun?.sign || 'Aries';
+
+  // Pull events from previous, current, and next month to catch window edges
+  const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const MS_PER_DAY = 24 * 60 * 60 * 1000;
+  const rangeEvents = [];
+  for (const offset of [-1, 0, 1]) {
+    const probe = new Date(date.getFullYear(), date.getMonth() + offset, 1);
+    rangeEvents.push(...getMonthEvents(probe.getFullYear(), probe.getMonth() + 1));
+  }
+
+  const out = [];
+
+  // ── Lunations (±2 days) ──
+  for (const ev of rangeEvents) {
+    if (ev.type !== 'lunation') continue;
+    const evDate = parseYMD(ev.date);
+    const daysDiff = Math.round((dayStart - evDate) / MS_PER_DAY); // +ve = past
+    const absDiff = Math.abs(daysDiff);
+    if (absDiff > 2) continue;
+
+    const signIdx = SIGNS.indexOf(ev.sign);
+    if (signIdx < 0) continue;
+    const lunationLon = norm360(signIdx * 30 + (ev.degree || 15));
+    let house = findHouseForLongitude(lunationLon, chartData.houses);
+    if (!house) house = findWholeSignHouse(ev.sign, ascSign);
+
+    const templates = ev.subtype === 'new_moon' ? NEW_MOON_HOUSE_PROMPTS : FULL_MOON_HOUSE_PROMPTS;
+    const template = house ? templates[house] : null;
+    if (!template) continue;
+
+    const text = template.replace('{deg}', ev.degree).replace('{sign}', ev.sign);
+    const priority = 1.0 - absDiff * 0.15; // 1.0 | 0.85 | 0.70
+    const when = daysDiff === 0 ? 'today'
+      : daysDiff > 0 ? `${daysDiff} day${daysDiff > 1 ? 's' : ''} ago`
+      : `in ${-daysDiff} day${-daysDiff > 1 ? 's' : ''}`;
+
+    out.push({
+      id: `lunation-${ev.subtype}-${ev.date}`,
+      text,
+      sourceTitle: `${ev.subtype === 'new_moon' ? 'New Moon' : 'Full Moon'} in ${ev.sign}`,
+      sourceDetail: when,
+      priority,
+    });
+  }
+
+  // ── Ingresses (window around entry, fading as planet moves through sign) ──
+  for (const ev of rangeEvents) {
+    if (ev.type !== 'ingress') continue;
+    const evDate = parseYMD(ev.date);
+    const daysSince = Math.round((dayStart - evDate) / MS_PER_DAY); // +ve = after ingress
+    if (daysSince < -2 || daysSince > 45) continue;
+
+    // Only show after-ingress prompts while the planet is still in that sign
+    if (daysSince >= 0) {
+      const pos = positions.find(p => p.planet === ev.planet);
+      if (!pos || pos.sign !== ev.sign) continue;
+    }
+
+    const planetPrompt = TRANSIT_PLANET_PROMPTS[ev.planet];
+    if (!planetPrompt) continue;
+
+    let priority;
+    let detail;
+    if (daysSince < 0) {
+      priority = 0.35;
+      detail = `in ${-daysSince} day${-daysSince > 1 ? 's' : ''}`;
+    } else if (daysSince <= 1) {
+      priority = 0.9;
+      detail = daysSince === 0 ? 'entering today' : 'entered yesterday';
+    } else if (daysSince <= 7) {
+      priority = 0.75;
+      detail = `peak · day ${daysSince + 1} in ${ev.sign}`;
+    } else {
+      priority = 0.45;
+      detail = `settling · day ${daysSince + 1} in ${ev.sign}`;
+    }
+
+    const signTheme = SIGN_THEMES[ev.sign];
+    const lead = signTheme
+      ? `${ev.planet} is moving through ${ev.sign}, coloring its themes with ${signTheme.theme}.`
+      : `${ev.planet} is moving through ${ev.sign}.`;
+
+    out.push({
+      id: `ingress-${ev.planet}-${ev.sign}`,
+      text: `${lead} ${planetPrompt}`,
+      sourceTitle: `${ev.planet} in ${ev.sign}`,
+      sourceDetail: detail,
+      priority,
+    });
+  }
+
+  // ── Retrograde stations (±3 days) ──
+  for (const ev of rangeEvents) {
+    if (ev.type !== 'retrograde') continue;
+    const evDate = parseYMD(ev.date);
+    const daysDiff = Math.round((dayStart - evDate) / MS_PER_DAY);
+    const absDiff = Math.abs(daysDiff);
+    if (absDiff > 3) continue;
+
+    const planetPrompt = TRANSIT_PLANET_PROMPTS[ev.planet];
+    if (!planetPrompt) continue;
+
+    const label = ev.subtype === 'station_rx' ? 'stations retrograde' : 'stations direct';
+    const priority = 0.7 - absDiff * 0.1;
+    const when = daysDiff === 0 ? 'today'
+      : daysDiff > 0 ? `${daysDiff} day${daysDiff > 1 ? 's' : ''} ago`
+      : `in ${-daysDiff} day${-daysDiff > 1 ? 's' : ''}`;
+
+    out.push({
+      id: `retro-${ev.planet}-${ev.subtype}-${ev.date}`,
+      text: `${ev.planet} ${label} — a moment to pause and review. ${planetPrompt}`,
+      sourceTitle: `${ev.planet} ${ev.subtype === 'station_rx' ? '℞ station' : 'direct station'}`,
+      sourceDetail: when,
+      priority,
+    });
+  }
+
+  // ── Natal transit aspects ──
+  for (const asp of aspects.slice(0, 6)) {
+    const key = `${asp.transitPlanet}-${asp.natalPlanet}`;
+    const text = TRANSIT_NATAL_PROMPTS[key]?.prompt
+      || TRANSIT_PLANET_PROMPTS[asp.transitPlanet];
+    if (!text) continue;
+    out.push({
+      id: `aspect-${asp.transitPlanet}-${asp.aspectType}-${asp.natalPlanet}`,
+      text,
+      sourceTitle: `${asp.transitPlanet} ${asp.aspectType} natal ${asp.natalPlanet}`,
+      sourceDetail: `orb ${asp.orb.toFixed(1)}°`,
+      priority: 0.4 + 0.35 * asp.exactness,
+    });
+  }
+
+  // ── Day ruler fallback ──
+  out.push({
+    id: 'dayruler',
+    text: TRANSIT_PLANET_PROMPTS[dayRuler] || 'What is asking for your attention today?',
+    sourceTitle: `${dayRuler} Day`,
+    sourceDetail: format(date, 'EEEE'),
+    priority: 0.15,
+  });
+
+  out.sort((a, b) => b.priority - a.priority);
+  const seen = new Set();
+  return out.filter(p => {
+    if (seen.has(p.id)) return false;
+    seen.add(p.id);
+    return true;
+  });
+}
+
+function parseYMD(s) {
+  const [y, m, d] = s.split('-').map(Number);
+  return new Date(y, m - 1, d);
 }
 
 // ─── GENERATE WEEK READING ───
