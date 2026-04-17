@@ -24,17 +24,24 @@ const SIGN_GLYPHS = {
   Sagittarius: '♐', Capricorn: '♑', Aquarius: '♒', Pisces: '♓',
 };
 
+// \uFE0E = Unicode variation selector that forces text (monochrome) rendering
+// of otherwise-emojified characters like ♈ and ☿ on iOS/macOS.
+const VS15 = '\uFE0E';
+function textPresentation(glyph) {
+  return glyph ? `${glyph}${VS15}` : '';
+}
+
 function getEventGlyphs(ev) {
   if (ev.type === 'lunation') {
     const moon = ev.subtype === 'new_moon' ? '🌑' : '🌕';
-    return `${moon}${SIGN_GLYPHS[ev.sign] || ''}`;
+    return `${moon}${textPresentation(SIGN_GLYPHS[ev.sign])}`;
   }
   if (ev.type === 'ingress') {
-    return `${PLANET_GLYPHS[ev.planet] || ''}${SIGN_GLYPHS[ev.sign] || ''}`;
+    return `${textPresentation(PLANET_GLYPHS[ev.planet])}${textPresentation(SIGN_GLYPHS[ev.sign])}`;
   }
   if (ev.type === 'retrograde') {
     const mark = ev.subtype === 'station_rx' ? '℞' : 'D';
-    return `${PLANET_GLYPHS[ev.planet] || ''}${mark}`;
+    return `${textPresentation(PLANET_GLYPHS[ev.planet])}${mark}`;
   }
   return '•';
 }
