@@ -13,6 +13,13 @@ const EVENT_COLORS = {
   retrograde: 'bg-amber/15 text-amber border-amber/30',
 };
 
+const EVENT_DOT_COLORS = {
+  moon: 'bg-moon-silver',
+  ingress: 'bg-purple-text',
+  sun: 'bg-gold',
+  retrograde: 'bg-amber',
+};
+
 export default function Calendar({ onSelectDay }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -86,7 +93,7 @@ export default function Calendar({ onSelectDay }) {
               key={dateStr}
               onClick={() => onSelectDay(day)}
               className={`
-                border-r border-b border-border min-h-[100px] p-1.5 cursor-pointer
+                border-r border-b border-border min-h-[70px] sm:min-h-[100px] p-1 sm:p-1.5 cursor-pointer
                 transition-colors hover:bg-void-lighter
                 ${!inMonth ? 'opacity-30' : ''}
                 ${today ? 'bg-gold-glow/30' : ''}
@@ -105,11 +112,28 @@ export default function Calendar({ onSelectDay }) {
                 </div>
               </div>
 
-              {/* Event pills */}
-              <div className="space-y-0.5">
+              {/* Event dots (mobile) */}
+              {dayEvents.length > 0 && (
+                <div className="flex flex-wrap gap-1 sm:hidden" aria-label={`${dayEvents.length} events`}>
+                  {dayEvents.slice(0, 4).map((ev, i) => (
+                    <span
+                      key={i}
+                      title={ev.label}
+                      className={`w-1.5 h-1.5 rounded-full ${EVENT_DOT_COLORS[ev.color] || EVENT_DOT_COLORS.ingress}`}
+                    />
+                  ))}
+                  {dayEvents.length > 4 && (
+                    <span className="text-[9px] leading-none text-text-dim">+{dayEvents.length - 4}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Event pills (tablet/desktop) */}
+              <div className="hidden sm:block space-y-0.5">
                 {dayEvents.slice(0, 3).map((ev, i) => (
                   <div
                     key={i}
+                    title={ev.label}
                     className={`text-[10px] leading-tight px-1.5 py-0.5 rounded border truncate ${EVENT_COLORS[ev.color] || EVENT_COLORS.ingress}`}
                   >
                     {ev.label}
