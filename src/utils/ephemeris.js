@@ -167,6 +167,7 @@ function findLunations(year, month) {
   const start = new Date(year, month - 1, 1);
   const end = new Date(year, month + 1, 0); // include buffer
 
+  let prevDate = null;
   let prevElongation = null;
   for (let d = new Date(start); d <= end; d = addDays(d, 1)) {
     const jd = dateToJD(d);
@@ -176,43 +177,58 @@ function findLunations(year, month) {
     const elong = norm360(moonLon - sunLon);
 
     if (prevElongation !== null) {
-      // New Moon: elongation crosses 0 (goes from >300 to <60)
+      // New Moon: elongation wraps from high (near 360) to low (near 0)
       if (prevElongation > 300 && elong < 60) {
-        const moonSign = getSign(moonLon);
-        const deg = getSignDegree(moonLon);
-        if (d.getMonth() === month - 1) {
-          events.push({
-            date: format(d, 'yyyy-MM-dd'),
-            type: 'lunation',
-            subtype: 'new_moon',
-            label: `New Moon in ${moonSign} ${Math.round(deg)}°`,
-            sign: moonSign,
-            degree: Math.round(deg),
-            color: 'moon'
-          });
+        // Unwrap and linearly interpolate the exact conjunction moment
+        const elongUnwrapped = elong + 360;
+        const frac = (360 - prevElongation) / (elongUnwrapped - prevElongation);
+        const exact = evaluateLunationAt(prevDate, frac);
+        if (exact.date.getMonth() === month - 1) {
+          events.push(buildLunationEvent(exact, 'new_moon'));
         }
       }
-      // Full Moon: elongation crosses 180
+      // Full Moon: elongation crosses 180 monotonically
       if (prevElongation < 180 && elong >= 180) {
-        const moonSign = getSign(moonLon);
-        const deg = getSignDegree(moonLon);
-        if (d.getMonth() === month - 1) {
-          events.push({
-            date: format(d, 'yyyy-MM-dd'),
-            type: 'lunation',
-            subtype: 'full_moon',
-            label: `Full Moon in ${moonSign} ${Math.round(deg)}°`,
-            sign: moonSign,
-            degree: Math.round(deg),
-            color: 'moon'
-          });
+        const frac = (180 - prevElongation) / (elong - prevElongation);
+        const exact = evaluateLunationAt(prevDate, frac);
+        if (exact.date.getMonth() === month - 1) {
+          events.push(buildLunationEvent(exact, 'full_moon'));
         }
       }
     }
+    prevDate = d;
     prevElongation = elong;
   }
 
   return events;
+}
+
+// Given a starting date and a fractional day offset, compute the Moon's
+// longitude at that exact moment. Used to get accurate sign/degree at
+// the true conjunction or opposition rather than at the detection midnight.
+function evaluateLunationAt(startDate, frac) {
+  const exactMs = startDate.getTime() + frac * 24 * 60 * 60 * 1000;
+  const date = new Date(exactMs);
+  const jd = dateToJD(date);
+  const T = julianCenturies(jd);
+  return { date, moonLon: moonLongitude(T) };
+}
+
+function buildLunationEvent({ date, moonLon }, subtype) {
+  const sign = getSign(moonLon);
+  const degree = Math.round(getSignDegree(moonLon));
+  const label = subtype === 'new_moon'
+    ? `New Moon in ${sign} ${degree}°`
+    : `Full Moon in ${sign} ${degree}°`;
+  return {
+    date: format(date, 'yyyy-MM-dd'),
+    type: 'lunation',
+    subtype,
+    label,
+    sign,
+    degree,
+    color: 'moon',
+  };
 }
 
 // Find planetary ingresses in a given month

@@ -13,6 +13,32 @@ const EVENT_COLORS = {
   retrograde: 'bg-amber/15 text-amber border-amber/30',
 };
 
+const PLANET_GLYPHS = {
+  Sun: '☉', Moon: '☽', Mercury: '☿', Venus: '♀', Mars: '♂',
+  Jupiter: '♃', Saturn: '♄', Uranus: '♅', Neptune: '♆', Pluto: '♇',
+};
+
+const SIGN_GLYPHS = {
+  Aries: '♈', Taurus: '♉', Gemini: '♊', Cancer: '♋',
+  Leo: '♌', Virgo: '♍', Libra: '♎', Scorpio: '♏',
+  Sagittarius: '♐', Capricorn: '♑', Aquarius: '♒', Pisces: '♓',
+};
+
+function getEventGlyphs(ev) {
+  if (ev.type === 'lunation') {
+    const moon = ev.subtype === 'new_moon' ? '🌑' : '🌕';
+    return `${moon}${SIGN_GLYPHS[ev.sign] || ''}`;
+  }
+  if (ev.type === 'ingress') {
+    return `${PLANET_GLYPHS[ev.planet] || ''}${SIGN_GLYPHS[ev.sign] || ''}`;
+  }
+  if (ev.type === 'retrograde') {
+    const mark = ev.subtype === 'station_rx' ? '℞' : 'D';
+    return `${PLANET_GLYPHS[ev.planet] || ''}${mark}`;
+  }
+  return '•';
+}
+
 export default function Calendar({ onSelectDay }) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -86,7 +112,7 @@ export default function Calendar({ onSelectDay }) {
               key={dateStr}
               onClick={() => onSelectDay(day)}
               className={`
-                border-r border-b border-border min-h-[100px] p-1.5 cursor-pointer
+                border-r border-b border-border min-h-[70px] sm:min-h-[100px] p-1 sm:p-1.5 cursor-pointer
                 transition-colors hover:bg-void-lighter
                 ${!inMonth ? 'opacity-30' : ''}
                 ${today ? 'bg-gold-glow/30' : ''}
@@ -105,11 +131,30 @@ export default function Calendar({ onSelectDay }) {
                 </div>
               </div>
 
-              {/* Event pills */}
-              <div className="space-y-0.5">
+              {/* Event glyphs (mobile) */}
+              {dayEvents.length > 0 && (
+                <div className="flex flex-wrap gap-0.5 sm:hidden" aria-label={`${dayEvents.length} events`}>
+                  {dayEvents.slice(0, 4).map((ev, i) => (
+                    <span
+                      key={i}
+                      title={ev.label}
+                      className={`inline-flex items-center justify-center leading-none text-[11px] px-1 py-0.5 rounded border ${EVENT_COLORS[ev.color] || EVENT_COLORS.ingress}`}
+                    >
+                      {getEventGlyphs(ev)}
+                    </span>
+                  ))}
+                  {dayEvents.length > 4 && (
+                    <span className="text-[9px] leading-none text-text-dim self-center">+{dayEvents.length - 4}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Event pills (tablet/desktop) */}
+              <div className="hidden sm:block space-y-0.5">
                 {dayEvents.slice(0, 3).map((ev, i) => (
                   <div
                     key={i}
+                    title={ev.label}
                     className={`text-[10px] leading-tight px-1.5 py-0.5 rounded border truncate ${EVENT_COLORS[ev.color] || EVENT_COLORS.ingress}`}
                   >
                     {ev.label}

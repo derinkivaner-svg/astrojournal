@@ -17,6 +17,8 @@ export default function DayView({ date, onChangeDate, onOpenJournal }) {
   const [saved, setSaved]         = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [copied, setCopied]       = useState(false);
+  const [selectedPromptId, setSelectedPromptId] = useState(null);
+  const [promptsOpen, setPromptsOpen] = useState(false);
 
   const dateStr    = format(date, 'yyyy-MM-dd');
   const moonPhase  = getMoonPhaseForDate(date);
@@ -29,12 +31,31 @@ export default function DayView({ date, onChangeDate, onOpenJournal }) {
     return generateDayReading(date, chart);
   }, [dateStr]);
 
+  const prompts = reading?.prompts || [];
+  const selectedPrompt = prompts.find(p => p.id === selectedPromptId) || prompts[0] || null;
+
   useEffect(() => {
     const saved = getJournalEntry(dateStr) || '';
     setJournal(saved);
     setSaved(false);
     setIsEditing(!saved); // start in edit mode only when no existing entry
   }, [dateStr]);
+
+  useEffect(() => {
+    setPromptsOpen(false);
+    const stored = localStorage.getItem(`promptSel-${dateStr}`);
+    if (stored && prompts.some(p => p.id === stored)) {
+      setSelectedPromptId(stored);
+    } else {
+      setSelectedPromptId(prompts[0]?.id || null);
+    }
+  }, [dateStr, prompts.length]);
+
+  function choosePrompt(id) {
+    setSelectedPromptId(id);
+    localStorage.setItem(`promptSel-${dateStr}`, id);
+    setPromptsOpen(false);
+  }
 
   function handleSave() {
     saveJournalEntry(dateStr, journal);
@@ -53,7 +74,7 @@ export default function DayView({ date, onChangeDate, onOpenJournal }) {
       if (reading.affirmation)      parts.push('AFFIRMATION', reading.affirmation, '');
       if (reading.climate)          parts.push('ASTROLOGICAL CLIMATE', reading.climate, '');
       if (reading.soul_guidance)    parts.push('SOUL GUIDANCE', reading.soul_guidance, '');
-      if (reading.journaling_prompt) parts.push('JOURNALING PROMPT', reading.journaling_prompt, '');
+      if (selectedPrompt?.text)     parts.push('JOURNALING PROMPT', selectedPrompt.text, '');
     }
     if (journal) parts.push('MY JOURNAL', journal);
     navigator.clipboard.writeText(parts.join('\n'));
@@ -164,13 +185,59 @@ export default function DayView({ date, onChangeDate, onOpenJournal }) {
           )}
         </div>
 
-        {/* Journaling Prompt — right above the entry */}
-        {reading?.journaling_prompt && (
-          <div className="mb-4 bg-void border-l-2 border-l-gold/60 rounded-r-lg pl-4 pr-3 py-3">
-            <p className="text-text-dim text-[10px] uppercase tracking-wider mb-1">Prompt</p>
-            <p className="text-text-secondary text-sm leading-relaxed italic">
-              {reading.journaling_prompt}
-            </p>
+        {/* Journaling Prompt — dropdown of active transit-based prompts */}
+        {selectedPrompt && (
+          <div className="mb-4">
+            {prompts.length > 1 && (
+              <div className="relative mb-2">
+                <button
+                  type="button"
+                  onClick={() => setPromptsOpen(!promptsOpen)}
+                  className="w-full flex items-center justify-between gap-2 bg-void border border-border hover:border-gold/40 rounded-lg px-3 py-2 text-left cursor-pointer transition-colors"
+                  aria-expanded={promptsOpen}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="text-text-dim text-[10px] uppercase tracking-wider">Prompt source</div>
+                    <div className="text-sm text-text-primary truncate">
+                      {selectedPrompt.sourceTitle}
+                      <span className="text-text-dim"> · {selectedPrompt.sourceDetail}</span>
+                    </div>
+                  </div>
+                  <svg
+                    width="14" height="14" viewBox="0 0 14 14" fill="none"
+                    className={`flex-shrink-0 text-text-dim transition-transform ${promptsOpen ? 'rotate-180' : ''}`}
+                  >
+                    <path d="M3 5L7 9L11 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </button>
+                {promptsOpen && (
+                  <div className="absolute z-10 left-0 right-0 mt-1 bg-void-light border border-border rounded-lg shadow-lg max-h-80 overflow-auto">
+                    {prompts.map(p => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => choosePrompt(p.id)}
+                        className={`block w-full text-left px-3 py-2.5 border-b border-border last:border-b-0 hover:bg-void-lighter cursor-pointer transition-colors ${p.id === selectedPrompt.id ? 'bg-gold/10' : ''}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-text-primary">{p.sourceTitle}</span>
+                          <span className="text-[10px] text-text-dim flex-shrink-0">{p.sourceDetail}</span>
+                        </div>
+                        <p className="text-xs text-text-secondary italic mt-1 line-clamp-2 leading-snug">
+                          {p.text}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            <div className="bg-void border-l-2 border-l-gold/60 rounded-r-lg pl-4 pr-3 py-3">
+              <p className="text-text-dim text-[10px] uppercase tracking-wider mb-1">Prompt</p>
+              <p className="text-text-secondary text-sm leading-relaxed italic">
+                {selectedPrompt.text}
+              </p>
+            </div>
           </div>
         )}
 
