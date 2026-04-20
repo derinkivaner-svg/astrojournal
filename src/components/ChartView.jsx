@@ -39,6 +39,11 @@ const SIGN_ELEMENTS = {
 const ELEMENT_BG    = { fire:'#FEF0EC', earth:'#EDFAED', air:'#ECF3FF', water:'#EDEEFF' };
 const ELEMENT_COLOR = { fire:'#8B2200', earth:'#1a5c1a', air:'#0a2c8c', water:'#2a1a8c' };
 
+// Alternating backgrounds for each natal house segment, so the eye can
+// pick up the house change at a glance without fighting the sign colors.
+const HOUSE_BG_ODD  = '#ffffff';
+const HOUSE_BG_EVEN = '#eceff5';
+
 const ASPECT_COLORS = {
   conjunction:'#c9a840', sextile:'#1a8040', square:'#cc2200',
   trine:'#5533aa', opposition:'#336688', quincunx:'#999',
@@ -303,12 +308,18 @@ const FONT = "'Segoe UI Symbol','Apple Symbols','Noto Sans Symbols',serif";
 const SANS = "'Inter','Helvetica Neue',sans-serif";
 const MAIN_ASPECTS = ['conjunction','sextile','square','trine','opposition'];
 
+function aspectKey(a) {
+  return `${a.planet1}-${a.type}-${a.planet2}`;
+}
+
 // ─── Component ────────────────────────────────────────────────────────────
 export default function ChartView() {
-  const [tooltip, setTooltip]           = useState(null);
-  const [expanded, setExpanded]         = useState(null);         // planet name
-  const [expandedAspect, setExpandedAspect] = useState(null);    // aspect index
-  const containerRef = useRef(null);
+  const [tooltip, setTooltip]               = useState(null);
+  const [expanded, setExpanded]             = useState(null); // planet name
+  const [expandedAspect, setExpandedAspect] = useState(null); // aspect key
+  const containerRef   = useRef(null);
+  const placementRefs  = useRef({}); // planet name → DOM node
+  const aspectRefs     = useRef({}); // aspect key → DOM node
   const chart = getChart();
   if (!chart) return null;
 
@@ -326,6 +337,25 @@ export default function ChartView() {
     setTooltip({ content, x: e.clientX - rect.left, y: e.clientY - rect.top });
   }
   const hideTooltip = () => setTooltip(null);
+
+  function scrollToRef(node) {
+    if (!node) return;
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+
+  function handlePlanetClick(planetName) {
+    setExpanded(planetName);
+    hideTooltip();
+    // Wait a tick so the accordion starts opening before we scroll.
+    requestAnimationFrame(() => scrollToRef(placementRefs.current[planetName]));
+  }
+
+  function handleAspectClick(aspect) {
+    const key = aspectKey(aspect);
+    setExpandedAspect(key);
+    hideTooltip();
+    requestAnimationFrame(() => scrollToRef(aspectRefs.current[key]));
+  }
 
   // ── Precompute ──────────────────────────────────────────────────────────
 
@@ -389,7 +419,7 @@ export default function ChartView() {
           Your Chart
         </h2>
         <p className="text-text-secondary text-sm mt-1">
-          Hover over houses, planets, and aspects to explore
+          Hover to preview · tap a planet or aspect to jump to its details
         </p>
       </div>
 
@@ -438,9 +468,14 @@ export default function ChartView() {
           <circle cx={CX} cy={CY} r={R.zodiacOuter} fill="none" stroke="#2a2a2a" strokeWidth="1.2" />
           <circle cx={CX} cy={CY} r={R.zodiacInner} fill="none" stroke="#555"    strokeWidth="0.8" />
 
-          {/* 4. House № strip background */}
-          <circle cx={CX} cy={CY} r={R.zodiacInner} fill="#f4f4f7" />
-          <circle cx={CX} cy={CY} r={R.hnumInner}   fill="white"   />
+          {/* 4. Alternating per-house backgrounds (from zodiac inner edge
+               to inner circle). Two colors by odd/even so it's easy to see
+               where one house ends and the next begins. */}
+          {houseData.map(({ houseNum, sectorD }) => (
+            <path key={`hbg-${houseNum}`} d={sectorD}
+                  fill={houseNum % 2 ? HOUSE_BG_ODD : HOUSE_BG_EVEN}
+                  stroke="none" style={{ pointerEvents: 'none' }} />
+          ))}
 
           {/* 5. House cusp lines — run full length from edge to center */}
           {houseData.map(({ lx1,ly1,lx2,ly2,isAsc }, i) => (
@@ -472,7 +507,8 @@ export default function ChartView() {
               <line x1={x1} y1={y1} x2={x2} y2={y2}
                     stroke="transparent" strokeWidth="10"
                     className="cursor-pointer"
-                    onMouseEnter={e => showTooltip(e, buildAspectTooltip(aspect))} />
+                    onMouseEnter={e => showTooltip(e, buildAspectTooltip(aspect))}
+                    onClick={() => handleAspectClick(aspect)} />
             </g>
           ))}
 
@@ -511,7 +547,8 @@ export default function ChartView() {
             const glyph = PLANET_GLYPHS[planet.name] || planet.name.charAt(0);
             return (
               <g key={planet.name} className="cursor-pointer"
-                 onMouseEnter={e => showTooltip(e, buildPlanetTooltip(planet))}>
+                 onMouseEnter={e => showTooltip(e, buildPlanetTooltip(planet))}
+                 onClick={() => handlePlanetClick(planet.name)}>
                 <circle cx={x} cy={y} r={PLANET_CIRC}
                         fill="white" stroke={color} strokeWidth="1.4" />
                 <text x={x} y={y} textAnchor="middle" dominantBaseline="central"
@@ -590,7 +627,8 @@ export default function ChartView() {
             const hasAnalysis = analysis.length > 0;
             return (
               <div key={p.name}
-                   className="bg-void-light border border-border rounded-xl overflow-hidden transition-colors">
+                   ref={(el) => { placementRefs.current[p.name] = el; }}
+                   className="bg-void-light border border-border rounded-xl overflow-hidden transition-colors scroll-mt-20">
                 {/* Header row */}
                 <button
                   onClick={() => hasAnalysis && setExpanded(isOpen ? null : p.name)}
@@ -662,15 +700,18 @@ export default function ChartView() {
           <div className="space-y-2">
             {chart.aspects.filter(a => MAIN_ASPECTS.includes(a.type)).map((a, i) => {
               const color  = ASPECT_COLORS[a.type] || '#888';
-              const isOpen = expandedAspect === i;
+              const key    = aspectKey(a);
+              const isOpen = expandedAspect === key;
               const g1     = PLANET_GLYPHS[a.planet1] || a.planet1?.charAt(0) || '?';
               const g2     = PLANET_GLYPHS[a.planet2] || a.planet2?.charAt(0) || '?';
               const c1     = PLANET_COLORS[a.planet1] || '#666';
               const c2     = PLANET_COLORS[a.planet2] || '#666';
               return (
-                <div key={i} className="bg-void-light border border-border rounded-xl overflow-hidden">
+                <div key={i}
+                     ref={(el) => { aspectRefs.current[key] = el; }}
+                     className="bg-void-light border border-border rounded-xl overflow-hidden scroll-mt-20">
                   <button
-                    onClick={() => setExpandedAspect(isOpen ? null : i)}
+                    onClick={() => setExpandedAspect(isOpen ? null : key)}
                     className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-white/5 transition-colors cursor-pointer"
                   >
                     {/* Aspect type badge */}
