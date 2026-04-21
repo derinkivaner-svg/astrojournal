@@ -82,47 +82,87 @@ function moonLongitude(T) {
   return norm360(lon);
 }
 
-// Planetary mean longitudes (simplified, sufficient for sign-level accuracy)
-// Based on Meeus / VSOP87 truncated
-const PLANET_ELEMENTS = {
-  Mercury: { L0: 252.2509, L1: 149472.6746, perturbations: true },
-  Venus: { L0: 181.9798, L1: 58517.8157, perturbations: true },
-  Mars: { L0: 355.4330, L1: 19140.2993, perturbations: true },
-  Jupiter: { L0: 34.3515, L1: 3034.9057, perturbations: false },
-  Saturn: { L0: 50.0774, L1: 1222.1138, perturbations: false },
-  Uranus: { L0: 314.0550, L1: 428.4677, perturbations: false },
-  Neptune: { L0: 304.3487, L1: 218.4862, perturbations: false },
-  Pluto: { L0: 238.9290, L1: 145.2078, perturbations: false }
+// Mean Keplerian orbital elements at J2000.0 and their per-century rates,
+// from JPL's "Keplerian Elements for Approximate Positions of the Major Planets"
+// (https://ssd.jpl.nasa.gov/planets/approx_pos.html). Valid 1800 AD – 2050 AD
+// with ~0.1°–1° accuracy — comfortably precise enough for sign/degree display.
+//
+// Format per entry: [value_at_J2000, rate_per_julian_century]
+//   a    semi-major axis           (AU)
+//   e    eccentricity              (dimensionless)
+//   I    inclination               (deg)
+//   L    mean longitude            (deg)
+//   pi   longitude of perihelion   (deg)  (often written ϖ)
+//   node longitude of ascending node (deg)
+const J2000_ELEMENTS = {
+  Mercury: { a:[0.38709927, 0.00000037], e:[0.20563593,  0.00001906], I:[7.00497902,-0.00594749], L:[252.25032350,149472.67411175], pi:[77.45779628, 0.16047689], node:[48.33076593,-0.12534081] },
+  Venus:   { a:[0.72333566, 0.00000390], e:[0.00677672, -0.00004107], I:[3.39467605,-0.00078890], L:[181.97909950, 58517.81538729], pi:[131.60246718, 0.00268329], node:[76.67984255,-0.27769418] },
+  Earth:   { a:[1.00000261, 0.00000562], e:[0.01671123, -0.00004392], I:[-0.00001531,-0.01294668], L:[100.46457166, 35999.37244981], pi:[102.93768193, 0.32327364], node:[0.0, 0.0] },
+  Mars:    { a:[1.52371034, 0.00001847], e:[0.09339410,  0.00007882], I:[1.84969142,-0.00813131], L:[-4.55343205,  19140.30268499], pi:[-23.94362959, 0.44441088], node:[49.55953891,-0.29257343] },
+  Jupiter: { a:[5.20288700,-0.00011607], e:[0.04838624, -0.00013253], I:[1.30439695,-0.00183714], L:[34.39644051,   3034.74612775], pi:[14.72847983, 0.21252668], node:[100.47390909, 0.20469106] },
+  Saturn:  { a:[9.53667594,-0.00125060], e:[0.05386179, -0.00050991], I:[2.48599187, 0.00193609], L:[49.95424423,   1222.49362201], pi:[92.59887831,-0.41897216], node:[113.66242448,-0.28867794] },
+  Uranus:  { a:[19.18916464,-0.00196176], e:[0.04725744,-0.00004397], I:[0.77263783,-0.00242939], L:[313.23810451,   428.48202785], pi:[170.95427630, 0.40805281], node:[74.01692503, 0.04240589] },
+  Neptune: { a:[30.06992276, 0.00026291], e:[0.00859048, 0.00005105], I:[1.77004347, 0.00035372], L:[-55.12002969,   218.45945325], pi:[44.96476227,-0.32241464], node:[131.78422574,-0.00508664] },
+  Pluto:   { a:[39.48211675,-0.00031596], e:[0.24882730, 0.00005170], I:[17.14001206,0.00004818], L:[238.92903833,   145.20780515], pi:[224.06891629,-0.04062942], node:[110.30393684,-0.01183482] },
 };
 
-function planetLongitude(planet, T) {
-  if (planet === 'Sun') return sunLongitude(T);
-  if (planet === 'Moon') return moonLongitude(T);
+const D2R = Math.PI / 180;
+const R2D = 180 / Math.PI;
 
-  const el = PLANET_ELEMENTS[planet];
-  if (!el) return 0;
-
-  let L = norm360(el.L0 + el.L1 * T);
-
-  // Add simplified perturbation terms for inner planets
-  if (planet === 'Mercury') {
-    const M = norm360(174.7948 + 149472.5153 * T) * Math.PI / 180;
-    L += 23.44 * Math.sin(M) + 2.98 * Math.sin(2 * M);
-  } else if (planet === 'Venus') {
-    const M = norm360(50.4161 + 58517.8039 * T) * Math.PI / 180;
-    L += 0.77 * Math.sin(M);
-  } else if (planet === 'Mars') {
-    const M = norm360(19.3730 + 19139.8585 * T) * Math.PI / 180;
-    L += 10.69 * Math.sin(M) + 0.58 * Math.sin(2 * M);
-  } else if (planet === 'Jupiter') {
-    const M = norm360(20.0202 + 3034.6114 * T) * Math.PI / 180;
-    L += 5.55 * Math.sin(M) + 0.17 * Math.sin(2 * M);
-  } else if (planet === 'Saturn') {
-    const M = norm360(317.0207 + 1222.1138 * T) * Math.PI / 180;
-    L += 6.40 * Math.sin(M) + 0.57 * Math.sin(2 * M);
+// Solve Kepler's equation M = E - e·sin(E). M, E in degrees; e dimensionless.
+function solveKepler(Mdeg, e) {
+  // Normalize M to [-180, 180]
+  let M = ((Mdeg + 180) % 360 + 360) % 360 - 180;
+  let E = M + e * R2D * Math.sin(M * D2R);
+  for (let i = 0; i < 12; i++) {
+    const dE = (E - e * R2D * Math.sin(E * D2R) - M) /
+               (1 - e * Math.cos(E * D2R));
+    E -= dE;
+    if (Math.abs(dE) < 1e-9) break;
   }
+  return E;
+}
 
-  return norm360(L);
+// Heliocentric ecliptic rectangular coordinates (AU) in J2000 reference plane.
+function heliocentricXYZ(planetName, T) {
+  const el = J2000_ELEMENTS[planetName];
+  if (!el) return null;
+  const a  = el.a[0]    + el.a[1]    * T;
+  const e  = el.e[0]    + el.e[1]    * T;
+  const I  = el.I[0]    + el.I[1]    * T;
+  const L  = el.L[0]    + el.L[1]    * T;
+  const pi = el.pi[0]   + el.pi[1]   * T;
+  const N  = el.node[0] + el.node[1] * T;
+  const w  = pi - N;     // argument of perihelion
+  const M  = L  - pi;    // mean anomaly
+  const E  = solveKepler(M, e) * D2R;
+  // Orbital-plane position with x toward perihelion
+  const xp = a * (Math.cos(E) - e);
+  const yp = a * Math.sqrt(Math.max(0, 1 - e*e)) * Math.sin(E);
+  // Rotate by (w, I, N) into ecliptic J2000
+  const cw = Math.cos(w * D2R), sw = Math.sin(w * D2R);
+  const cN = Math.cos(N * D2R), sN = Math.sin(N * D2R);
+  const cI = Math.cos(I * D2R), sI = Math.sin(I * D2R);
+  const x = (cw*cN - sw*sN*cI) * xp + (-sw*cN - cw*sN*cI) * yp;
+  const y = (cw*sN + sw*cN*cI) * xp + (-sw*sN + cw*cN*cI) * yp;
+  const z =        (sw*sI)     * xp +         (cw*sI)     * yp;
+  return { x, y, z };
+}
+
+// Geocentric apparent ecliptic longitude (deg, 0-360) — what astrology uses.
+function geocentricEclipticLon(planetName, T) {
+  const p = heliocentricXYZ(planetName, T);
+  const e = heliocentricXYZ('Earth', T);
+  if (!p || !e) return 0;
+  const gx = p.x - e.x;
+  const gy = p.y - e.y;
+  return norm360(Math.atan2(gy, gx) * R2D);
+}
+
+function planetLongitude(planet, T) {
+  if (planet === 'Sun')  return sunLongitude(T);
+  if (planet === 'Moon') return moonLongitude(T);
+  return geocentricEclipticLon(planet, T);
 }
 
 // Get zodiac sign from ecliptic longitude
